@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+
+# Binary docs (not tracked)
+*.pdf
+*.pptx
+*.docx
+*.doc
+
+# Archive (already extracted)
+demo.zip
+
+# Simulation waveform dumps (very large)
+*.vcd
+
+# Compiled testbench outputs
+demo/tb/*.out
+
+# Vivado project temp files
+*.jou
+*.log
+*.backup.jou
+*.backup.log
+*.str
+*.xpr
+*.cache/
+*.hw/
+*.ip_user_files/
+*.sim/
+*.runs/
