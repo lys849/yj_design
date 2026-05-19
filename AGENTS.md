@@ -50,6 +50,9 @@ iverilog -o tb/fingerprint_tb.out tb/fingerprint_tb.v rtl/fingerprint_ctrl.v rtl
 
 # Top-level integration (all modules)
 iverilog -o tb/top_tb.out tb/top_tb.v rtl/top.v rtl/uart_tx.v rtl/uart_rx.v rtl/vga_ctrl.v rtl/vga_text.v rtl/keyboard_scan.v rtl/buzzer_ctrl.v rtl/spi_flash.v rtl/fingerprint_ctrl.v && vvp tb/top_tb.out
+
+# Board self-test (LEDs + UART + BTNC, no peripherals)
+iverilog -o test_board/tb/test_board_tb.out test_board/tb/test_board_tb.v test_board/rtl/test_board.v rtl/uart_tx.v && vvp test_board/tb/test_board_tb.out
 ```
 
 ### Verify all RTL compiles
