@@ -101,15 +101,30 @@ Nexys4 DDR 板载 FT2232HQ USB-UART 桥接芯片，通过 MicroUSB 线连接到�
 - 查找 **USB Serial Port (COMx)**，记住 `COMx` 编号（如 COM3、COM4）
 - 如果没有出现该设备，说明缺少 FTDI 驱动，参见下方「驱动安装」
 
-**2. 串口终端推荐**
+**2. 串口终端（首选：Vitis Serial Terminal）**
 
-以下任选一个：
+Vivado 2022.2 安装时会同时安装 **Vitis**，其内置 Serial Terminal 可直接查看串口，无需额外安装第三方软件。
+
+> **操作步骤：**
+> 1. 开始菜单搜索 **Vitis 2022.2** 并打开（无需创建工程）
+> 2. 菜单栏 → **Window → Show View → Terminal**
+> 3. Terminal 面板中点击绿色 + 号 → **Connect**
+> 4. 在弹出的 Serial Port Settings 中设置：
+>    - Port: 选择设备管理器中看到的 `COMx`（如 COM3）
+>    - Baud Rate: `115200`
+>    - Data Bits: `8`
+>    - Stop Bits: `1`
+>    - Parity: `None`
+>    - Flow Control: `None`
+> 5. 点击 **OK** 即可打开串口
+
+如果因任何原因无法使用 Vitis Terminal，以下替代方案任选一个：
 
 | 工具 | 说明 |
 |------|------|
+| **串口调试助手** | 国内常用，如 SSCOM、友善串口助手等，小巧便捷 |
 | **PuTTY** | 免费，下载 [putty.org](https://www.putty.org)，选择 Serial 模式 |
 | **MobaXterm** | 免费版够用，串口功能直观 |
-| **串口调试助手** | 国内常用，如 SSCOM、友善串口助手等 |
 
 **3. 连接参数**
 
@@ -121,19 +136,9 @@ Nexys4 DDR 板载 FT2232HQ USB-UART 桥接芯片，通过 MicroUSB 线连接到�
 - **校验位 (Parity):** None
 - **流控 (Flow Control):** None
 
-**4. 以 PuTTY 为例的操作步骤**
+**4. 预期输出**
 
-1. 打开 PuTTY，左侧选择 **Session**
-2. Connection type 选 **Serial**
-3. Serial line 填入设备管理器中看到的 `COMx`（如 `COM3`）
-4. Speed 填 `115200`
-5. 左侧 Category → **Serial**，确认参数：
-   - Data bits: 8
-   - Stop bits: 1
-   - Parity: None
-   - Flow control: None
-6. 点击 **Open** 打开串口
-7. 开发板上电 / 按 PROG 重新下载 bitstream 后，应看到周期性输出（约每 3 秒一次）：
+打开串口后，开发板上电 / 重新下载 bitstream 后，应看到周期性输出（约每 3 秒一次）：
 
 ```
 Nexys4 DDR Test OK!
@@ -141,7 +146,7 @@ Nexys4 DDR Test OK!
 ...
 ```
 
-8. 按 **BTNC** 按键，立即输出：
+按 **BTNC** 按键，立即输出：
 
 ```
 BTNC pressed!
