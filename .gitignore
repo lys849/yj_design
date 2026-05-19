@@ -15,6 +15,7 @@ demo.zip
 
 # Compiled testbench outputs
 demo/tb/*.out
+demo/test_board/tb/*.out
 
 # Vivado project temp files
 *.jou

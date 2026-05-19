@@ -21,18 +21,20 @@ module uart_tx #(
     localparam S_DATA = 2'd1;
     localparam S_STOP = 2'd2;
 
-    reg [1:0] state;
+    reg [1:0]  state;
     reg [15:0] bit_cnt;
-    reg [3:0]  bit_idx;  // 0-7: data bits, 8: stop bit
+    reg [3:0]  bit_idx;    // 0-7: data bits, 8: stop bit
+    reg [7:0]  tx_data_r;  // latched tx_data at start
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            state   <= S_IDLE;
-            bit_cnt <= 16'd0;
-            bit_idx <= 4'd0;
-            tx      <= 1'b1;
-            tx_busy <= 1'b0;
-            tx_done <= 1'b0;
+            state     <= S_IDLE;
+            bit_cnt   <= 16'd0;
+            bit_idx   <= 4'd0;
+            tx        <= 1'b1;
+            tx_busy   <= 1'b0;
+            tx_done   <= 1'b0;
+            tx_data_r <= 8'd0;
         end else begin
             tx_done <= 1'b0;
 
@@ -43,9 +45,10 @@ module uart_tx #(
                     bit_cnt <= 16'd0;
                     bit_idx <= 4'd0;
                     if (tx_start) begin
-                        state   <= S_DATA;
-                        tx_busy <= 1'b1;
-                        tx      <= 1'b0;  // start bit
+                        state     <= S_DATA;
+                        tx_busy   <= 1'b1;
+                        tx        <= 1'b0;  // start bit
+                        tx_data_r <= tx_data;
                     end
                 end
 
@@ -56,7 +59,7 @@ module uart_tx #(
                             state <= S_STOP;
                             tx    <= 1'b1;  // stop bit
                         end else begin
-                            tx <= tx_data[bit_idx[2:0]];
+                            tx <= tx_data_r[bit_idx[2:0]];
                             bit_idx <= bit_idx + 4'd1;
                         end
                     end else begin
