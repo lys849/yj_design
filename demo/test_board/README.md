@@ -90,9 +90,50 @@ iverilog -o tb/test_board_tb.out \
 
 ### 串口检查
 
-1. 串口工具连接开发板 USB-UART 端口（macOS: `ls /dev/tty.usbserial*` 或 `/dev/cu.usbserial*`）
-2. 设置：**115200 baud, 8 data bits, 1 stop bit, no parity**
-3. 应看到周期性输出（约每 3 秒一次）：
+Nexys4 DDR 板载 FT2232HQ USB-UART 桥接芯片，通过 MicroUSB 线连接到电脑后会生成一个虚拟串口。
+
+#### Windows 11 串口设置
+
+**1. 确认串口号**
+
+- 右键「开始」菜单 → **设备管理器**
+- 展开 **端口 (COM 和 LPT)**
+- 查找 **USB Serial Port (COMx)**，记住 `COMx` 编号（如 COM3、COM4）
+- 如果没有出现该设备，说明缺少 FTDI 驱动，参见下方「驱动安装」
+
+**2. 串口终端推荐**
+
+以下任选一个：
+
+| 工具 | 说明 |
+|------|------|
+| **PuTTY** | 免费，下载 [putty.org](https://www.putty.org)，选择 Serial 模式 |
+| **MobaXterm** | 免费版够用，串口功能直观 |
+| **串口调试助手** | 国内常用，如 SSCOM、友善串口助手等 |
+
+**3. 连接参数**
+
+无论用哪个工具，参数统一设置为：
+
+- **波特率 (Baud Rate):** 115200
+- **数据位 (Data Bits):** 8
+- **停止位 (Stop Bits):** 1
+- **校验位 (Parity):** None
+- **流控 (Flow Control):** None
+
+**4. 以 PuTTY 为例的操作步骤**
+
+1. 打开 PuTTY，左侧选择 **Session**
+2. Connection type 选 **Serial**
+3. Serial line 填入设备管理器中看到的 `COMx`（如 `COM3`）
+4. Speed 填 `115200`
+5. 左侧 Category → **Serial**，确认参数：
+   - Data bits: 8
+   - Stop bits: 1
+   - Parity: None
+   - Flow control: None
+6. 点击 **Open** 打开串口
+7. 开发板上电 / 按 PROG 重新下载 bitstream 后，应看到周期性输出（约每 3 秒一次）：
 
 ```
 Nexys4 DDR Test OK!
@@ -100,11 +141,28 @@ Nexys4 DDR Test OK!
 ...
 ```
 
-4. 按 BTNC，立即输出：
+8. 按 **BTNC** 按键，立即输出：
 
 ```
 BTNC pressed!
 ```
+
+> 如果串口窗口显示乱码，检查波特率是否为 **115200**（常见错误是设成了 9600）。
+
+#### 驱动安装
+
+如果设备管理器中未出现 USB Serial Port，或显示带黄色感叹号的设备：
+
+1. 打开 [FTDI 驱动下载页](https://ftdichip.com/drivers/vcp-drivers/)
+2. 下载 Windows 版本（通常为 setup executable）
+3. 安装后重新插拔 MicroUSB 线
+4. 设备管理器应出现 **USB Serial Port (COMx)**
+
+#### macOS 串口设置
+
+1. 终端执行 `ls /dev/tty.usbserial*` 找到串口设备
+2. 使用 `screen` 连接：`screen /dev/tty.usbserial-xxxx 115200`
+3. 退出：`Ctrl+A` 然后 `K`，回答 `y`
 
 ## 故障排查
 
