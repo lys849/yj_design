@@ -17,20 +17,18 @@ module test_board_tb;
         .led       (led)
     );
 
-    // 100MHz clock (10ns period)
     always #5 clk = ~clk;
 
-    // UART receive monitor
     localparam BIT_PERIOD = 8680;
 
-    reg [7:0]      rx_byte;
-    reg [8*40:1]   msg_buf;
-    reg [5:0]      msg_pos;
-    integer        i;
+    reg [7:0]   rx_byte;
+    reg [7:0]   rx_buf [0:63];
+    reg [5:0]   rx_cnt;
+    integer     i;
 
     initial begin
-        msg_buf = 0;
-        msg_pos = 0;
+        for (i = 0; i < 64; i = i + 1) rx_buf[i] = 0;
+        rx_cnt = 0;
     end
 
     always begin
@@ -40,25 +38,35 @@ module test_board_tb;
             #(BIT_PERIOD);
             rx_byte[i] = debug_tx;
         end
-        #(BIT_PERIOD);  // stop bit
+        #(BIT_PERIOD);
         #1;
 
-        if (rx_byte >= 32 && rx_byte < 127) begin
-            msg_buf = {msg_buf, rx_byte};
-            msg_pos = msg_pos + 1;
-        end else if (rx_byte == 8'd10) begin  // LF
-            $display("[UART] %s", msg_buf);
-            msg_buf = 0;
-            msg_pos = 0;
-        end
+        rx_buf[rx_cnt] = rx_byte;
+        rx_cnt = rx_cnt + 1;
     end
 
     initial begin
         $display("=== Nexys4 DDR Board Self-Test ===\n");
+
         clk  = 0; btnc = 0; rst_n = 0;
         #100 rst_n = 1;
-        #200000;  // 200us — first char arrives ~125us
-        $display("Stopping early for debug.");
+
+        #5000000;  // wait for hello
+        $display("--- BTNC ---");
+        btnc = 1;
+        #30000000;
+        btnc = 0;
+        #500000;
+        #10000000;  // wait for BTN msg
+
+        $display("Received %0d bytes:", rx_cnt);
+        for (i = 0; i < rx_cnt; i = i + 1) begin
+            if (rx_buf[i] >= 32 && rx_buf[i] < 127)
+                $write("%c", rx_buf[i]);
+            else
+                $write("[%02X]", rx_buf[i]);
+        end
+        $display("\n\n=== Done ===");
         $finish;
     end
 
