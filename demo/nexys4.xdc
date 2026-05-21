@@ -119,8 +119,7 @@ set_property PACKAGE_PIN G3 [get_ports fp_sensor_rx]
 set_property IOSTANDARD LVCMOS33 [get_ports fp_sensor_rx]
 
 # ============================================
-# Buzzer — PMOD JC (JC7 = T1)
-#   VCC → JC6, GND → JC5, I/O → JC7
+# Buzzer — PMOD JC (JC4 = Y1, JC5 = GND, JC6 = VCC)
 # ============================================
-set_property PACKAGE_PIN T1 [get_ports buzzer]
+set_property PACKAGE_PIN Y1 [get_ports buzzer]
 set_property IOSTANDARD LVCMOS33 [get_ports buzzer]
