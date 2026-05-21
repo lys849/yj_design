@@ -1,179 +1,189 @@
-# Nexys4 DDR 开发板自检测试
+# Fingerprint Payment System — 板级自检测试
 
 ## 目的
 
-在外设（指纹传感器、键盘、蜂鸣器、VGA 显示器）到货前，先验证开发板本身工作正常。
+无需 VGA 显示器，通过串口终端完整验证支付系统全部外设功能。
 
-## 测试内容
+## 测试外设
 
-| 测试项   | 板载资源        | 预期现象                                         |
-|----------|-----------------|--------------------------------------------------|
-| LED      | 4 个用户 LED    | 上电后流水灯；按 BTNC 切换 4 种图案                |
-| 串口     | USB-UART 桥     | 串口终端周期性输出 "Nexys4 DDR Test OK!"          |
-| 按键     | BTNC 中心按键   | 按 BTNC 切换 LED 图案，串口打印 "BTNC pressed!"    |
+| 外设 | 连接 | PMOD | 测试方式 |
+|------|------|------|----------|
+| 键盘 4×4 | JB | — | 菜单选择、金额输入 |
+| 指纹传感器 AS608 | JD | — | 注册、识别、支付验证 |
+| 蜂鸣器 | JC | — | 按键短鸣、成功/失败提示 |
+| 串口输出 | MicroUSB | — | 显示菜单、金额、状态 |
+
+## 串口连接（首选：Vitis Serial Terminal）
+
+### Windows 11 — Vitis Serial Terminal
+
+1. 开始菜单搜索 **Vitis 2022.2** 并打开（无需创建工程）
+2. 菜单栏 → **Window → Show View → Terminal**
+3. Terminal 面板点击绿色 + 号 → **Connect**
+4. 参数设置：
+   - Port: 设备管理器中的 `COMx`
+   - Baud Rate: `115200`
+   - Data Bits: `8`
+   - Stop Bits: `1`
+   - Parity: `None`
+   - Flow Control: `None`
+
+### 替代方案
+
+| 工具 | 说明 |
+|------|------|
+| 串口调试助手（SSCOM 等） | 国内常用，小巧便捷 |
+| PuTTY | 免费，选择 Serial 模式 |
+| macOS: `screen /dev/tty.usbserial-xxx 115200` | 内置命令 |
+
+### 驱动安装
+
+若设备管理器未出现 USB Serial Port，下载 FTDI 驱动：https://ftdichip.com/drivers/vcp-drivers/
 
 ## 文件说明
 
 ```
 test_board/
 ├── rtl/
-│   └── test_board.v       # 自检顶层模块
+│   ├── test_board.v   # 完整支付系统状态机
+│   └── msg_rom.v      # 消息 ROM（生成文件，非手动维护）
 ├── tb/
-│   └── test_board_tb.v    # 仿真测试台
-├── test_board.xdc         # 引脚约束
-└── README.md              # 本文件
+│   └── test_board_tb.v
+├── test_board.xdc     # 引脚约束
+└── README.md
 ```
 
-> `test_board.v` 复用 `demo/rtl/uart_tx.v`，Vivado 需同时添加该文件。
+复用 `demo/rtl/` 下的模块：`uart_tx.v`、`keyboard_scan.v`、`fingerprint_ctrl.v`、`uart_rx.v`、`buzzer_ctrl.v`
 
-## 步骤 1：iverilog 仿真（可选，先验证逻辑）
+## Vivado 操作步骤
+
+### 1. 创建工程
+
+- 打开 Vivado 2022.2
+- Create Project → RTL Project
+- 不勾选 "Do not specify sources at this time"
+- 选择 Board: **Nexys4 DDR**
+  - 如无 Boards 选项卡，手动选 Family: Artix-7, Package: csg324, Speed: -1, Part: xc7a100tcsg324-1
+
+### 2. 添加源文件
+
+Flow Navigator → **Add Sources** → 添加：
+- `demo/test_board/rtl/test_board.v`
+- `demo/rtl/uart_tx.v`
+- `demo/rtl/uart_rx.v`
+- `demo/rtl/keyboard_scan.v`
+- `demo/rtl/fingerprint_ctrl.v`
+- `demo/rtl/buzzer_ctrl.v`
+
+右键 `test_board` → **Set as Top**
+
+### 3. 添加约束文件
+
+- Add Sources → Add or create constraints
+- 添加 `demo/test_board/test_board.xdc`
+
+### 4. 生成 Bitstream
+
+Flow Navigator → **Generate Bitstream** → 等待完成（3-5 分钟）
+
+### 5. 下载到开发板
+
+1. MicroUSB 连接开发板 PROG 口
+2. 开发板上电
+3. Open Hardware Manager → Open Target → Auto Connect
+4. Program Device → 选择 `.bit` 文件
+
+## 串口终端预期输出
+
+### 启动
+
+```
+=== FINGERPRINT PAYMENT SYSTEM ===
+FP Sensor: OK
+
+[MAIN]
+ 1.Account  2.Payment
+>
+```
+
+> 若看到 `FP Sensor: FAIL`，检查指纹传感器接线和供电。系统仍可测试键盘和蜂鸣器。
+
+### 按键映射
+
+| 键 | 功能 |
+|----|------|
+| 0-9 | 数字输入 |
+| A | 确认 |
+| B | 取消 / 返回上级菜单 |
+| F | 退格 / 清除输入 |
+
+### 主菜单操作
+
+按 **1** → 进入账户管理：
+```
+[ACCOUNT]
+ 1.Create  2.Delete
+ 3.Recharge  4.Query
+ B:Back
+>
+```
+
+按 **2** → 进入支付：
+```
+PAYMENT
+Enter amount (yuan):
+```
+
+### 创建账户流程
+
+1. 选择 1.Create
+2. 提示 `Place finger (1/2)...` — 在传感器上放手指
+3. 提示 `Place finger (2/2), press A...` — 再次放手指，按 A
+4. 提示 `Enter deposit (yuan):` — 输入金额，按 A 确认
+5. 显示 `Account created!`
+
+### 支付流程
+
+1. 主菜单按 **2**
+2. 输入金额（如 `1250` = ¥12.50），按 **A**
+3. 提示 `Place finger to confirm...`
+4. 放手指 → 自动识别 → 扣款
+5. 显示 `Payment successful!`
+
+### 蜂鸣器反馈
+
+| 事件 | 蜂鸣 |
+|------|------|
+| 按键按下 | 短蜂鸣 |
+| 操作成功 | 长蜂鸣 |
+| 操作失败 | 双蜂鸣 |
+
+## 预置测试账户
+
+| 槽位 | 指纹 ID | 余额 |
+|------|---------|------|
+| 1 | fp_id=1 | ¥100.00 |
+| 2 | fp_id=2 | ¥50.00 |
+
+> 需要先通过「创建账户」功能向 AS608 录入指纹（对应 fp_id 1 和 2），之后支付和账户管理才能正常匹配。
+
+## iverilog 仿真
 
 ```bash
 cd demo
-iverilog -o tb/test_board_tb.out \
+iverilog -o test_board/tb/test_board_tb.out \
     test_board/tb/test_board_tb.v \
     test_board/rtl/test_board.v \
-    rtl/uart_tx.v \
-    && vvp tb/test_board_tb.out
+    rtl/uart_tx.v rtl/uart_rx.v rtl/keyboard_scan.v \
+    rtl/fingerprint_ctrl.v rtl/buzzer_ctrl.v \
+    && vvp test_board/tb/test_board_tb.out
 ```
-
-预期输出: LED 信号在波形中可见；UART 输出 "Nexys4 DDR Test OK!" 后周期性重复。
-
-## 步骤 2：创建 Vivado 工程
-
-1. 打开 Vivado 2022.2
-2. **Create Project** → Next
-3. Project name: `test_board`，路径自定义
-4. Project Type: **RTL Project** → 勾选 "Do not specify sources at this time"
-5. Device: **Boards** → 搜索 "Nexys4 DDR"  → 选择 → Next → Finish
-   > 如无 Boards 选项卡，手动选：Family: Artix-7, Package: csg324, Speed: -1, Part: xc7a100tcsg324-1
-
-## 步骤 3：添加源文件
-
-1. 左侧 Flow Navigator → **Add Sources** → Add or create design sources
-2. 添加以下文件：
-   - `demo/test_board/rtl/test_board.v`
-   - `demo/rtl/uart_tx.v`
-3. 确保 `test_board` 为 **Top Module**（Sources 面板右键 → Set as Top）
-
-## 步骤 4：添加约束文件
-
-1. **Add Sources** → Add or create constraints
-2. 添加 `demo/test_board/test_board.xdc`
-
-## 步骤 5：生成 Bitstream
-
-1. 左侧 Flow Navigator → **Generate Bitstream**
-2. 若提示无 Implementation，点击 **Yes** 自动运行综合与实现
-3. 等待完成（约 3-5 分钟）
-
-## 步骤 6：下载到开发板
-
-1. 用 MicroUSB 线连接开发板 **PROG 口** 至电脑
-2. 开发板上电（POWER 开关拨到 ON）
-3. Vivado → **Open Hardware Manager** → Open Target → Auto Connect
-4. 右键目标器件 → **Program Device** → 选择生成的 `.bit` 文件 → Program
-
-## 步骤 7：验证
-
-### LED 检查
-
-上电后 4 个 LED 依次向左流水（LD0→LD1→LD2→LD3→LD0...）。按 **BTNC**（C12 旁边的大按键）切换 LED 图案：
-
-| 按 BTNC 次数 | LED 图案              |
-|-------------|----------------------|
-| 0（默认）    | 向左流水灯            |
-| 1           | 向右流水灯            |
-| 2           | 全亮/全灭交替          |
-| 3           | 二进制计数            |
-| 4           | 回到向左流水灯         |
-
-### 串口检查
-
-Nexys4 DDR 板载 FT2232HQ USB-UART 桥接芯片，通过 MicroUSB 线连接到电脑后会生成一个虚拟串口。
-
-#### Windows 11 串口设置
-
-**1. 确认串口号**
-
-- 右键「开始」菜单 → **设备管理器**
-- 展开 **端口 (COM 和 LPT)**
-- 查找 **USB Serial Port (COMx)**，记住 `COMx` 编号（如 COM3、COM4）
-- 如果没有出现该设备，说明缺少 FTDI 驱动，参见下方「驱动安装」
-
-**2. 串口终端（首选：Vitis Serial Terminal）**
-
-Vivado 2022.2 安装时会同时安装 **Vitis**，其内置 Serial Terminal 可直接查看串口，无需额外安装第三方软件。
-
-> **操作步骤：**
-> 1. 开始菜单搜索 **Vitis 2022.2** 并打开（无需创建工程）
-> 2. 菜单栏 → **Window → Show View → Terminal**
-> 3. Terminal 面板中点击绿色 + 号 → **Connect**
-> 4. 在弹出的 Serial Port Settings 中设置：
->    - Port: 选择设备管理器中看到的 `COMx`（如 COM3）
->    - Baud Rate: `115200`
->    - Data Bits: `8`
->    - Stop Bits: `1`
->    - Parity: `None`
->    - Flow Control: `None`
-> 5. 点击 **OK** 即可打开串口
-
-如果因任何原因无法使用 Vitis Terminal，以下替代方案任选一个：
-
-| 工具 | 说明 |
-|------|------|
-| **串口调试助手** | 国内常用，如 SSCOM、友善串口助手等，小巧便捷 |
-| **PuTTY** | 免费，下载 [putty.org](https://www.putty.org)，选择 Serial 模式 |
-| **MobaXterm** | 免费版够用，串口功能直观 |
-
-**3. 连接参数**
-
-无论用哪个工具，参数统一设置为：
-
-- **波特率 (Baud Rate):** 115200
-- **数据位 (Data Bits):** 8
-- **停止位 (Stop Bits):** 1
-- **校验位 (Parity):** None
-- **流控 (Flow Control):** None
-
-**4. 预期输出**
-
-打开串口后，开发板上电 / 重新下载 bitstream 后，应看到周期性输出（约每 3 秒一次）：
-
-```
-Nexys4 DDR Test OK!
-Nexys4 DDR Test OK!
-...
-```
-
-按 **BTNC** 按键，立即输出：
-
-```
-BTNC pressed!
-```
-
-> 如果串口窗口显示乱码，检查波特率是否为 **115200**（常见错误是设成了 9600）。
-
-#### 驱动安装
-
-如果设备管理器中未出现 USB Serial Port，或显示带黄色感叹号的设备：
-
-1. 打开 [FTDI 驱动下载页](https://ftdichip.com/drivers/vcp-drivers/)
-2. 下载 Windows 版本（通常为 setup executable）
-3. 安装后重新插拔 MicroUSB 线
-4. 设备管理器应出现 **USB Serial Port (COMx)**
-
-#### macOS 串口设置
-
-1. 终端执行 `ls /dev/tty.usbserial*` 找到串口设备
-2. 使用 `screen` 连接：`screen /dev/tty.usbserial-xxxx 115200`
-3. 退出：`Ctrl+A` 然后 `K`，回答 `y`
 
 ## 故障排查
 
-| 现象               | 可能原因                                                |
-|--------------------|--------------------------------------------------------|
-| LED 不亮           | 开发板未通电；bitstream 未成功下载；rst_n 被按住           |
-| 串口无输出         | 波特率不匹配（需 115200）；串口端口选错；Windows 缺少驱动  |
-| LED 不流水         | 时钟未锁定；检查 Vivado 约束是否正确添加                    |
-| BTNC 无反应        | 按键定义未加入约束；接触不良                               |
+| 现象 | 可能原因 |
+|------|----------|
+| 串口无输出 | 波特率不是 115200；串口端口选错；FTDI 驱动未安装 |
+| 键盘无反应 | PMOD JB 接线顺序错误；键盘排线松动 |
+| FP Sensor: FAIL | 传感器未接线或接线反了；传感器未供电 |
+| 指纹不匹配 | score 阈值需 >80；手指偏湿或偏干；需要重新录入 |
