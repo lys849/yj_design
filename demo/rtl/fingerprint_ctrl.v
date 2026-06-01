@@ -81,6 +81,10 @@ module fingerprint_ctrl #(
     // Response byte counter
     reg [3:0] rsp_cnt;
 
+    // Timeout: ~100ms in CLK_FREQ cycles
+    localparam TIMEOUT_MAX = CLK_FREQ / 10;
+    reg [23:0] timeout_cnt;
+
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state    <= S_IDLE;
@@ -137,10 +141,17 @@ module fingerprint_ctrl #(
 
                 S_WAIT_RESP: begin
                     // After sending, wait for first response byte
+                    timeout_cnt <= timeout_cnt + 1'b1;
                     if (rx_valid) begin
                         resp_bytes[rsp_cnt] <= rx_data[6:0];
                         rsp_cnt <= rsp_cnt + 4'd1;
                         state   <= S_READ_RESP;
+                        timeout_cnt <= 24'd0;
+                    end else if (timeout_cnt >= TIMEOUT_MAX) begin
+                        status   <= 8'd3;
+                        cmd_done <= 1'b1;
+                        state    <= S_DONE;
+                        timeout_cnt <= 24'd0;
                     end
                 end
 

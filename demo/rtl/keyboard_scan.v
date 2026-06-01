@@ -58,9 +58,10 @@ module keyboard_scan #(
 
             // When stable and a key is newly pressed
             if (stable && (col != 4'hF) && (key_prev != col)) begin
-                key_code  <= {scan_idx, col[1:0] == 2'b10 ? 2'd1 :
-                                         col[1:0] == 2'b01 ? 2'd2 :
-                                         col[1:0] == 2'b00 ? 2'd3 : 2'd0};
+                key_code  <= {scan_idx,
+                              col[0] == 1'b0 ? 2'd0 :
+                              col[1] == 1'b0 ? 2'd1 :
+                              col[2] == 1'b0 ? 2'd2 : 2'd3};
                 key_valid <= 1'b1;
             end
 
