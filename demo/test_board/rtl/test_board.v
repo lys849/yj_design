@@ -21,6 +21,17 @@ module test_board (
     reg        uart_tx_start;
     wire       uart_tx_busy, uart_tx_done;
     wire [3:0] kb_code;
+    reg  [3:0] key_map [0:15];
+    wire [3:0] key;
+    initial begin
+        // Physical 4x4 keypad → logical key mapping
+        // Layout: [1][2][3][A] / [4][5][6][B] / [7][8][9][C] / [*][0][#][D]
+        key_map[0]  = 4'd1;  key_map[1]  = 4'd2;  key_map[2]  = 4'd3;  key_map[3]  = 4'd10;
+        key_map[4]  = 4'd4;  key_map[5]  = 4'd5;  key_map[6]  = 4'd6;  key_map[7]  = 4'd11;
+        key_map[8]  = 4'd7;  key_map[9]  = 4'd8;  key_map[10] = 4'd9;  key_map[11] = 4'd12;
+        key_map[12] = 4'd14; key_map[13] = 4'd0;  key_map[14] = 4'd15; key_map[15] = 4'd13;
+    end
+    assign key = key_map[kb_code];
     wire       kb_valid;
     reg  [7:0] fp_cmd_opcode;
     reg  [15:0] fp_cmd_param;
@@ -1206,7 +1217,7 @@ end
                 S_MAIN_WAIT: begin
                     if (kb_valid) begin
                         beep_short <= 1;
-                        case (kb_code)
+                        case (key)
                             4'd1: begin
                                 st <= S_ACCT_MENU;
                             end
@@ -1233,7 +1244,7 @@ end
                 S_ACCT_WAIT: begin
                     if (kb_valid) begin
                         beep_short <= 1;
-                        case (kb_code)
+                        case (key)
                             4'd1: begin
                                 mid   <= MSG_CREATE_1;
                                 mgo   <= 1;
@@ -1279,7 +1290,7 @@ end
                 end
                 // C2: wait for A, then GET_IMAGE
                 S_CR_C2: begin
-                    if (kb_valid && kb_code == 4'd10) begin
+                    if (kb_valid && key == 4'd10) begin
                         fop<=FP_GET_IMAGE; fgo<=1; st<=S_FP_WAIT; st_ret<=S_CR_C2W;
                     end
                 end
@@ -1314,7 +1325,7 @@ end
                 S_CR_AMT: begin
                     if (kb_valid) begin
                         beep_short <= 1;
-                        case (kb_code)
+                        case (key)
                             4'd10: begin
                                 if (inp > 0) begin
                                     // Save account
@@ -1331,7 +1342,7 @@ end
                             end
                             4'd11: begin mid<=MSG_CANCELLED; mgo<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end
                             4'd15: inp <= inp / 10;
-                            default: if (kb_code <= 4'd9 && inp < 32'd99999) inp <= inp * 32'd10 + {28'd0, kb_code};
+                            default: if (key <= 4'd9 && inp < 32'd99999) inp <= inp * 32'd10 + {28'd0, key};
                         endcase
                     end
                 end
@@ -1361,7 +1372,7 @@ end
                 S_DL_CONF: begin mid<=MSG_CONFIRM_DEL; mgo<=1; st<=S_MSG_TRIG; st_ret<=S_DL_DO; end
                 S_DL_DO: begin
                     if (kb_valid) begin
-                        case (kb_code)
+                        case (key)
                             4'd10: begin
                                 fop <= FP_DELETE;
                                 fpar <= {8'd0, matched_fp_id};
@@ -1405,7 +1416,7 @@ end
                 S_RC_AMT: begin
                     if (kb_valid) begin
                         beep_short <= 1;
-                        case (kb_code)
+                        case (key)
                             4'd10: begin
                                 if (inp > 0 && ffound)
                                     acct_balance[fslot] <= acct_balance[fslot] + inp * 32'd100;
@@ -1417,7 +1428,7 @@ end
                             end
                             4'd11: begin mid<=MSG_CANCELLED; mgo<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end
                             4'd15: inp <= inp / 10;
-                            default: if (kb_code <= 4'd9 && inp < 32'd99999) inp <= inp * 32'd10 + {28'd0, kb_code};
+                            default: if (key <= 4'd9 && inp < 32'd99999) inp <= inp * 32'd10 + {28'd0, key};
                         endcase
                     end
                 end
@@ -1453,7 +1464,7 @@ end
                 S_PY_AMT: begin
                     if (kb_valid) begin
                         beep_short <= 1;
-                        case (kb_code)
+                        case (key)
                             4'd10: begin
                                 if (inp > 0) begin
                                     mid  <= MSG_PAY_CONFIRM;
@@ -1464,7 +1475,7 @@ end
                             end
                             4'd11: st <= S_MAIN_MENU;
                             4'd15: inp <= inp / 10;
-                            default: if (kb_code <= 4'd9 && inp < 32'd99999) inp <= inp * 32'd10 + {28'd0, kb_code};
+                            default: if (key <= 4'd9 && inp < 32'd99999) inp <= inp * 32'd10 + {28'd0, key};
                         endcase
                     end
                 end
