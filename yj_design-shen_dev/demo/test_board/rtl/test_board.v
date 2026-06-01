@@ -1133,7 +1133,8 @@ end
         S_PY_SRCH    = 7'd52,
         S_PY_SRCHW   = 7'd53,
         S_PY_DONE    = 7'd54,
-        S_SHOW_KEY   = 7'd55;
+        S_PY_CHECK   = 7'd55,  // TB1 FIX: new state to check ffound after matched_fp_id settles
+        S_SHOW_KEY   = 7'd56;
 
     reg [6:0]  st, st_ret;
     reg [31:0] inp;           // numeric input accumulator (yuan)
@@ -1469,27 +1470,36 @@ end
                 S_PY_GEN:   begin fop<=FP_GEN_CHAR; fpar<=16'd1; fgo<=1; st<=S_FP_WAIT; st_ret<=S_PY_GENW; end
                 S_PY_GENW:  begin if (fp_status!=8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end else st<=S_PY_SRCH; end
                 S_PY_SRCH:  begin fop<=FP_SEARCH; fpar<={8'd1, MAX_FP_ID}; fgo<=1; st<=S_FP_WAIT; st_ret<=S_PY_SRCHW; end
+                // TB1 FIX: latch matched_fp_id first, then check ffound
+                // in the next cycle when the combinatorial always @(*) block
+                // has updated ffound/fslot based on the new matched_fp_id.
                 S_PY_SRCHW: begin
-                    if (fp_status != 8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end
-                    else begin
+                    if (fp_status != 8'd2) begin
+                        mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1;
+                        st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY;
+                    end else begin
                         matched_fp_id <= fp_response[7:0];
-                        if (ffound) begin
-                            if (acct_balance[fslot] >= inp * 32'd100) begin
-                                acct_balance[fslot] <= acct_balance[fslot] - inp * 32'd100;
-                                mid   <= MSG_PAY_OK;
-                                beep_ok <= 1;
-                            end else begin
-                                mid   <= MSG_INSUFF;
-                                beep_fail <= 1;
-                            end
+                        st <= S_PY_CHECK;  // wait one cycle for ffound to update
+                    end
+                end
+
+                S_PY_CHECK: begin
+                    if (ffound) begin
+                        if (acct_balance[fslot] >= inp * 32'd100) begin
+                            acct_balance[fslot] <= acct_balance[fslot] - inp * 32'd100;
+                            mid   <= MSG_PAY_OK;
+                            beep_ok <= 1;
                         end else begin
-                            mid   <= MSG_NO_MATCH;
+                            mid   <= MSG_INSUFF;
                             beep_fail <= 1;
                         end
-                        mgo <= 1;
-                        st  <= S_MSG_WAIT;
-                        st_ret <= S_SHOW_KEY;
+                    end else begin
+                        mid   <= MSG_NO_MATCH;
+                        beep_fail <= 1;
                     end
+                    mgo <= 1;
+                    st  <= S_MSG_WAIT;
+                    st_ret <= S_SHOW_KEY;
                 end
 
                 // ---- Show "press any key" then return to main ----

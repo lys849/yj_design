@@ -19,14 +19,15 @@ module keyboard_scan #(
     output reg        key_valid       // key press detected (one-cycle pulse)
 );
 
-    // Each row stays active for ~1ms (50000 cycles @ 50MHz)
-    // 4 rows × 1ms = 4ms full scan cycle → sufficient mechanical debounce
-    localparam SCAN_DWELL   = 50000;  // 1ms per row
+    // TB2 FIX: SCAN_DWELL now derived from CLK_FREQ so it works at any clock.
+    // At 50MHz → 50000 cycles (1ms), at 100MHz → 100000 cycles (1ms).
+    // 4 rows × 1ms = 4ms full scan cycle → sufficient mechanical debounce.
+    localparam SCAN_DWELL   = CLK_FREQ / 1000;  // 1ms per row
     localparam DEBOUNCE_CNT = DEBOUNCE_MS * (CLK_FREQ / 1000);  // intra-row debounce
 
     reg [1:0]  scan_idx;         // current row being scanned (0-3)
-    reg [15:0] dwell_cnt;        // counter for row dwell time
-    reg [15:0] debounce_cnt;     // counter for intra-row debounce
+    reg [31:0] dwell_cnt;        // counter for row dwell time (wide enough for any CLK_FREQ)
+    reg [31:0] debounce_cnt;     // counter for intra-row debounce
     reg [3:0]  col_prev;         // previous column value (for edge detection)
     reg [3:0]  col_stable;       // debounced column value
     reg [3:0]  key_state;        // per-row key-pressed state (1 bit per row)

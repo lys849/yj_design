@@ -40,14 +40,14 @@ set_property PACKAGE_PIN B7 [get_ports {vga_b[0]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {vga_b[0]}]
 set_property PACKAGE_PIN C7 [get_ports {vga_b[1]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {vga_b[1]}]
-set_property PACKAGE_PIN A7 [get_ports {vga_b[2]}]
+set_property PACKAGE_PIN D7 [get_ports {vga_b[2]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {vga_b[2]}]
-set_property PACKAGE_PIN C8 [get_ports {vga_b[3]}]
+set_property PACKAGE_PIN D8 [get_ports {vga_b[3]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {vga_b[3]}]
 
-set_property PACKAGE_PIN D8 [get_ports vga_hsync]
+set_property PACKAGE_PIN B11 [get_ports vga_hsync]
 set_property IOSTANDARD LVCMOS33 [get_ports vga_hsync]
-set_property PACKAGE_PIN A9 [get_ports vga_vsync]
+set_property PACKAGE_PIN B12 [get_ports vga_vsync]
 set_property IOSTANDARD LVCMOS33 [get_ports vga_vsync]
 
 # ============================================
@@ -90,22 +90,22 @@ set_property IOSTANDARD LVCMOS33 [get_ports debug_rx]
 #   kb_col[3:0] = FPGA inputs  (column read)
 #   Wiring: JB1..JB4 = kb_row[0..3], JB7..JB10 = kb_col[0..3]
 # ============================================
-set_property PACKAGE_PIN G14 [get_ports {kb_row[0]}]
+set_property PACKAGE_PIN D14 [get_ports {kb_row[0]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {kb_row[0]}]
-set_property PACKAGE_PIN P15 [get_ports {kb_row[1]}]
+set_property PACKAGE_PIN F16 [get_ports {kb_row[1]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {kb_row[1]}]
-set_property PACKAGE_PIN V11 [get_ports {kb_row[2]}]
+set_property PACKAGE_PIN G16 [get_ports {kb_row[2]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {kb_row[2]}]
-set_property PACKAGE_PIN V15 [get_ports {kb_row[3]}]
+set_property PACKAGE_PIN H14 [get_ports {kb_row[3]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {kb_row[3]}]
 
-set_property PACKAGE_PIN K16 [get_ports {kb_col[0]}]
+set_property PACKAGE_PIN E16 [get_ports {kb_col[0]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {kb_col[0]}]
-set_property PACKAGE_PIN R16 [get_ports {kb_col[1]}]
+set_property PACKAGE_PIN F13 [get_ports {kb_col[1]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {kb_col[1]}]
-set_property PACKAGE_PIN T9  [get_ports {kb_col[2]}]
+set_property PACKAGE_PIN G13 [get_ports {kb_col[2]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {kb_col[2]}]
-set_property PACKAGE_PIN U11 [get_ports {kb_col[3]}]
+set_property PACKAGE_PIN H16 [get_ports {kb_col[3]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {kb_col[3]}]
 
 # ============================================
@@ -119,7 +119,7 @@ set_property PACKAGE_PIN G3 [get_ports fp_sensor_rx]
 set_property IOSTANDARD LVCMOS33 [get_ports fp_sensor_rx]
 
 # ============================================
-# Buzzer — PMOD JC (JC4 = Y1, JC5 = GND, JC6 = VCC)
+# Buzzer — PMOD JC (JC4 = G6, JC5 = GND, JC6 = VCC)
 # ============================================
-set_property PACKAGE_PIN Y1 [get_ports buzzer]
+set_property PACKAGE_PIN G6 [get_ports buzzer]
 set_property IOSTANDARD LVCMOS33 [get_ports buzzer]
