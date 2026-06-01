@@ -1133,7 +1133,8 @@ end
         S_PY_SRCH    = 7'd52,
         S_PY_SRCHW   = 7'd53,
         S_PY_DONE    = 7'd54,
-        S_SHOW_KEY   = 7'd55;
+        S_SHOW_KEY   = 7'd55,
+        S_MSG_TRIG   = 7'd56;
 
     reg [6:0]  st, st_ret;
     reg [31:0] inp;           // numeric input accumulator (yuan)
@@ -1162,7 +1163,7 @@ end
                 S_INIT: begin
                     mid   <= MSG_TITLE;
                     mgo   <= 1;
-                    st    <= S_MSG_WAIT;
+                    st    <= S_MSG_TRIG;
                     st_ret <= S_INIT_FP;
                 end
 
@@ -1175,6 +1176,9 @@ end
                 end
 
                 // ---- Generic wait states ----
+                // ---- Wait one cycle for sender to see mgo ----
+                S_MSG_TRIG: st <= S_MSG_WAIT;
+
                 S_MSG_WAIT: if (tx_state == TX_IDLE) st <= st_ret;
 
                 S_FP_WAIT: begin
@@ -1183,7 +1187,7 @@ end
                         if (st_ret == S_MAIN_MENU) begin
                             mid   <= (fp_status == 8'd2) ? MSG_FP_OK : MSG_FP_FAIL;
                             mgo   <= 1;
-                            st    <= S_MSG_WAIT;
+                            st    <= S_MSG_TRIG;
                             st_ret <= S_MAIN_MENU;
                         end else begin
                             st <= st_ret;
@@ -1195,7 +1199,7 @@ end
                 S_MAIN_MENU: begin
                     mid   <= MSG_MAIN_MENU;
                     mgo   <= 1;
-                    st    <= S_MSG_WAIT;
+                    st    <= S_MSG_TRIG;
                     st_ret <= S_MAIN_WAIT;
                 end
 
@@ -1210,7 +1214,7 @@ end
                                 inp  <= 0;
                                 mid  <= MSG_PAY_AMOUNT;
                                 mgo  <= 1;
-                                st   <= S_MSG_WAIT;
+                                st   <= S_MSG_TRIG;
                                 st_ret <= S_PY_AMT;
                             end
                             default: st <= S_MAIN_WAIT;
@@ -1222,7 +1226,7 @@ end
                 S_ACCT_MENU: begin
                     mid   <= MSG_ACCT_MENU;
                     mgo   <= 1;
-                    st    <= S_MSG_WAIT;
+                    st    <= S_MSG_TRIG;
                     st_ret <= S_ACCT_WAIT;
                 end
 
@@ -1233,25 +1237,25 @@ end
                             4'd1: begin
                                 mid   <= MSG_CREATE_1;
                                 mgo   <= 1;
-                                st    <= S_MSG_WAIT;
+                                st    <= S_MSG_TRIG;
                                 st_ret <= S_CR_C1;
                             end
                             4'd2: begin
                                 mid   <= MSG_DELETE_1;
                                 mgo   <= 1;
-                                st    <= S_MSG_WAIT;
+                                st    <= S_MSG_TRIG;
                                 st_ret <= S_DL_CAP;
                             end
                             4'd3: begin
                                 mid   <= MSG_RECHARGE_1;
                                 mgo   <= 1;
-                                st    <= S_MSG_WAIT;
+                                st    <= S_MSG_TRIG;
                                 st_ret <= S_RC_CAP;
                             end
                             4'd4: begin
                                 mid   <= MSG_QUERY_1;
                                 mgo   <= 1;
-                                st    <= S_MSG_WAIT;
+                                st    <= S_MSG_TRIG;
                                 st_ret <= S_QR_CAP;
                             end
                             4'd11: st <= S_MAIN_MENU;  // B=back
@@ -1264,14 +1268,14 @@ end
                 // C1: GET_IMAGE
                 S_CR_C1:  begin fop<=FP_GET_IMAGE; fpar<=0; fgo<=1; st<=S_FP_WAIT; st_ret<=S_CR_C1W; end
                 S_CR_C1W: begin
-                    if (fp_status != 8'd2) begin mid<=MSG_ENROLL_FAIL; mgo<=1; beep_fail<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end
+                    if (fp_status != 8'd2) begin mid<=MSG_ENROLL_FAIL; mgo<=1; beep_fail<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end
                     else                              begin st<=S_CR_G1; end
                 end
                 // G1: GEN_CHAR(1)
                 S_CR_G1:  begin fop<=FP_GEN_CHAR; fpar<=16'd1; fgo<=1; st<=S_FP_WAIT; st_ret<=S_CR_G1W; end
                 S_CR_G1W: begin
-                    if (fp_status != 8'd2) begin mid<=MSG_ENROLL_FAIL; mgo<=1; beep_fail<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end
-                    else                              begin mid<=MSG_CREATE_2; mgo<=1; st<=S_MSG_WAIT; st_ret<=S_CR_C2; end
+                    if (fp_status != 8'd2) begin mid<=MSG_ENROLL_FAIL; mgo<=1; beep_fail<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end
+                    else                              begin mid<=MSG_CREATE_2; mgo<=1; st<=S_MSG_TRIG; st_ret<=S_CR_C2; end
                 end
                 // C2: wait for A, then GET_IMAGE
                 S_CR_C2: begin
@@ -1280,29 +1284,29 @@ end
                     end
                 end
                 S_CR_C2W: begin
-                    if (fp_status != 8'd2) begin mid<=MSG_ENROLL_FAIL; mgo<=1; beep_fail<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end
+                    if (fp_status != 8'd2) begin mid<=MSG_ENROLL_FAIL; mgo<=1; beep_fail<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end
                     else                              begin st<=S_CR_G2; end
                 end
                 // G2: GEN_CHAR(2)
                 S_CR_G2:  begin fop<=FP_GEN_CHAR; fpar<=16'd2; fgo<=1; st<=S_FP_WAIT; st_ret<=S_CR_G2W; end
                 S_CR_G2W: begin
-                    if (fp_status != 8'd2) begin mid<=MSG_ENROLL_FAIL; mgo<=1; beep_fail<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end
+                    if (fp_status != 8'd2) begin mid<=MSG_ENROLL_FAIL; mgo<=1; beep_fail<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end
                     else                              begin st<=S_CR_REG; end
                 end
                 // REG_MODEL + STORE
                 S_CR_REG:  begin fop<=FP_REG_MODEL; fpar<=0; fgo<=1; st<=S_FP_WAIT; st_ret<=S_CR_REGW; end
                 S_CR_REGW: begin
-                    if (fp_status != 8'd2) begin mid<=MSG_ENROLL_FAIL; mgo<=1; beep_fail<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end
+                    if (fp_status != 8'd2) begin mid<=MSG_ENROLL_FAIL; mgo<=1; beep_fail<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end
                     else                              begin st<=S_CR_ST; end
                 end
                 S_CR_ST:   begin fop<=FP_STORE; fpar<={{8'd0}, next_fp_id}; fgo<=1; st<=S_FP_WAIT; st_ret<=S_CR_STW; end
                 S_CR_STW:  begin
-                    if (fp_status != 8'd2) begin mid<=MSG_ENROLL_FAIL; mgo<=1; beep_fail<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end
+                    if (fp_status != 8'd2) begin mid<=MSG_ENROLL_FAIL; mgo<=1; beep_fail<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end
                     else begin
                         mid   <= MSG_ENTER_DEP;
                         mgo   <= 1;
                         inp   <= 0;
-                        st    <= S_MSG_WAIT;
+                        st    <= S_MSG_TRIG;
                         st_ret <= S_CR_AMT;
                     end
                 end
@@ -1322,10 +1326,10 @@ end
                                 mid   <= MSG_CREATED_OK;
                                 mgo   <= 1;
                                 beep_ok <= 1;
-                                st    <= S_MSG_WAIT;
+                                st    <= S_MSG_TRIG;
                                 st_ret <= S_SHOW_KEY;
                             end
-                            4'd11: begin mid<=MSG_CANCELLED; mgo<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end
+                            4'd11: begin mid<=MSG_CANCELLED; mgo<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end
                             4'd15: inp <= inp / 10;
                             default: if (kb_code <= 4'd9 && inp < 32'd99999) inp <= inp * 32'd10 + {28'd0, kb_code};
                         endcase
@@ -1335,26 +1339,26 @@ end
                 // ---- Delete Account ----
                 S_DL_CAP:  begin fop<=FP_GET_IMAGE; fgo<=1; st<=S_FP_WAIT; st_ret<=S_DL_CAPW; end
                 S_DL_CAPW: begin
-                    if (fp_status != 8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end
+                    if (fp_status != 8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end
                     else                               begin st<=S_DL_GEN; end
                 end
                 S_DL_GEN:  begin fop<=FP_GEN_CHAR; fpar<=16'd1; fgo<=1; st<=S_FP_WAIT; st_ret<=S_DL_GENW; end
                 S_DL_GENW: begin
-                    if (fp_status != 8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end
+                    if (fp_status != 8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end
                     else                               begin st<=S_DL_SRCH; end
                 end
                 S_DL_SRCH: begin fop<=FP_SEARCH; fpar<={8'd1, MAX_FP_ID}; fgo<=1; st<=S_FP_WAIT; st_ret<=S_DL_SRCHW; end
                 S_DL_SRCHW: begin
-                    if (fp_status != 8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end
+                    if (fp_status != 8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end
                     else begin
                         matched_fp_id <= fp_response[7:0];
                         mid   <= MSG_ACCT_INFO;
                         mgo   <= 1;
-                        st    <= S_MSG_WAIT;
+                        st    <= S_MSG_TRIG;
                         st_ret <= S_DL_CONF;
                     end
                 end
-                S_DL_CONF: begin mid<=MSG_CONFIRM_DEL; mgo<=1; st<=S_MSG_WAIT; st_ret<=S_DL_DO; end
+                S_DL_CONF: begin mid<=MSG_CONFIRM_DEL; mgo<=1; st<=S_MSG_TRIG; st_ret<=S_DL_DO; end
                 S_DL_DO: begin
                     if (kb_valid) begin
                         case (kb_code)
@@ -1365,7 +1369,7 @@ end
                                 st <= S_FP_WAIT;
                                 st_ret <= S_DL_DOW;
                             end
-                            4'd11: begin mid<=MSG_CANCELLED; mgo<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end
+                            4'd11: begin mid<=MSG_CANCELLED; mgo<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end
                             default: st <= S_DL_DO;
                         endcase
                     end
@@ -1377,24 +1381,24 @@ end
                     mid   <= MSG_DELETED;
                     mgo   <= 1;
                     beep_ok <= 1;
-                    st    <= S_MSG_WAIT;
+                    st    <= S_MSG_TRIG;
                     st_ret <= S_SHOW_KEY;
                 end
 
                 // ---- Recharge ----
                 S_RC_CAP:   begin fop<=FP_GET_IMAGE; fgo<=1; st<=S_FP_WAIT; st_ret<=S_RC_CAPW; end
-                S_RC_CAPW:  begin if (fp_status!=8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end else st<=S_RC_GEN; end
+                S_RC_CAPW:  begin if (fp_status!=8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end else st<=S_RC_GEN; end
                 S_RC_GEN:   begin fop<=FP_GEN_CHAR; fpar<=16'd1; fgo<=1; st<=S_FP_WAIT; st_ret<=S_RC_GENW; end
-                S_RC_GENW:  begin if (fp_status!=8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end else st<=S_RC_SRCH; end
+                S_RC_GENW:  begin if (fp_status!=8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end else st<=S_RC_SRCH; end
                 S_RC_SRCH:  begin fop<=FP_SEARCH; fpar<={8'd1, MAX_FP_ID}; fgo<=1; st<=S_FP_WAIT; st_ret<=S_RC_SRCHW; end
                 S_RC_SRCHW: begin
-                    if (fp_status != 8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end
+                    if (fp_status != 8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end
                     else begin
                         matched_fp_id <= fp_response[7:0];
                         mid   <= MSG_CUR_BAL;
                         mgo   <= 1;
                         inp   <= 0;
-                        st    <= S_MSG_WAIT;
+                        st    <= S_MSG_TRIG;
                         st_ret <= S_RC_AMT;
                     end
                 end
@@ -1408,10 +1412,10 @@ end
                                 mid  <= MSG_RECHARGED_OK;
                                 mgo  <= 1;
                                 beep_ok <= 1;
-                                st    <= S_MSG_WAIT;
+                                st    <= S_MSG_TRIG;
                                 st_ret <= S_SHOW_KEY;
                             end
-                            4'd11: begin mid<=MSG_CANCELLED; mgo<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end
+                            4'd11: begin mid<=MSG_CANCELLED; mgo<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end
                             4'd15: inp <= inp / 10;
                             default: if (kb_code <= 4'd9 && inp < 32'd99999) inp <= inp * 32'd10 + {28'd0, kb_code};
                         endcase
@@ -1420,18 +1424,18 @@ end
 
                 // ---- Query ----
                 S_QR_CAP:   begin fop<=FP_GET_IMAGE; fgo<=1; st<=S_FP_WAIT; st_ret<=S_QR_CAPW; end
-                S_QR_CAPW:  begin if (fp_status!=8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end else st<=S_QR_GEN; end
+                S_QR_CAPW:  begin if (fp_status!=8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end else st<=S_QR_GEN; end
                 S_QR_GEN:   begin fop<=FP_GEN_CHAR; fpar<=16'd1; fgo<=1; st<=S_FP_WAIT; st_ret<=S_QR_GENW; end
-                S_QR_GENW:  begin if (fp_status!=8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end else st<=S_QR_SRCH; end
+                S_QR_GENW:  begin if (fp_status!=8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end else st<=S_QR_SRCH; end
                 S_QR_SRCH:  begin fop<=FP_SEARCH; fpar<={8'd1, MAX_FP_ID}; fgo<=1; st<=S_FP_WAIT; st_ret<=S_QR_SRCHW; end
                 S_QR_SRCHW: begin
-                    if (fp_status != 8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end
+                    if (fp_status != 8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end
                     else begin
                         matched_fp_id <= fp_response[7:0];
                         mid  <= MSG_ACCT_INFO;
                         mgo  <= 1;
                         beep_ok <= 1;
-                        st   <= S_MSG_WAIT;
+                        st   <= S_MSG_TRIG;
                         st_ret <= S_QR_DONE;
                     end
                 end
@@ -1440,7 +1444,7 @@ end
                     if (tx_state == TX_IDLE) begin
                         mid  <= MSG_CUR_BAL;
                         mgo  <= 1;
-                        st   <= S_MSG_WAIT;
+                        st   <= S_MSG_TRIG;
                         st_ret <= S_SHOW_KEY;
                     end
                 end
@@ -1454,7 +1458,7 @@ end
                                 if (inp > 0) begin
                                     mid  <= MSG_PAY_CONFIRM;
                                     mgo  <= 1;
-                                    st   <= S_MSG_WAIT;
+                                    st   <= S_MSG_TRIG;
                                     st_ret <= S_PY_CAP;
                                 end
                             end
@@ -1465,12 +1469,12 @@ end
                     end
                 end
                 S_PY_CAP:   begin fop<=FP_GET_IMAGE; fgo<=1; st<=S_FP_WAIT; st_ret<=S_PY_CAPW; end
-                S_PY_CAPW:  begin if (fp_status!=8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end else st<=S_PY_GEN; end
+                S_PY_CAPW:  begin if (fp_status!=8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end else st<=S_PY_GEN; end
                 S_PY_GEN:   begin fop<=FP_GEN_CHAR; fpar<=16'd1; fgo<=1; st<=S_FP_WAIT; st_ret<=S_PY_GENW; end
-                S_PY_GENW:  begin if (fp_status!=8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end else st<=S_PY_SRCH; end
+                S_PY_GENW:  begin if (fp_status!=8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end else st<=S_PY_SRCH; end
                 S_PY_SRCH:  begin fop<=FP_SEARCH; fpar<={8'd1, MAX_FP_ID}; fgo<=1; st<=S_FP_WAIT; st_ret<=S_PY_SRCHW; end
                 S_PY_SRCHW: begin
-                    if (fp_status != 8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_WAIT; st_ret<=S_SHOW_KEY; end
+                    if (fp_status != 8'd2) begin mid<=MSG_NO_MATCH; mgo<=1; beep_fail<=1; st<=S_MSG_TRIG; st_ret<=S_SHOW_KEY; end
                     else begin
                         matched_fp_id <= fp_response[7:0];
                         if (ffound) begin
@@ -1487,7 +1491,7 @@ end
                             beep_fail <= 1;
                         end
                         mgo <= 1;
-                        st  <= S_MSG_WAIT;
+                        st  <= S_MSG_TRIG;
                         st_ret <= S_SHOW_KEY;
                     end
                 end
@@ -1496,7 +1500,7 @@ end
                 S_SHOW_KEY: begin
                     mid  <= MSG_ANY_KEY;
                     mgo  <= 1;
-                    st   <= S_MSG_WAIT;
+                    st   <= S_MSG_TRIG;
                     st_ret <= S_MAIN_MENU;
                 end
 

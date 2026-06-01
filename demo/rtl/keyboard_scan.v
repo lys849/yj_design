@@ -20,20 +20,22 @@ module keyboard_scan #(
     reg [31:0] debounce_cnt;
     reg [3:0]  key_prev;
     reg [3:0]  key_curr;
-    reg        stable;
+    reg        stable_d;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             scan_idx     <= 2'd0;
-            row          <= 4'b1110; // scan row 0 first
+            row          <= 4'b1110;
             debounce_cnt <= 32'd0;
-            key_prev     <= 4'hF;    // no key pressed
+            key_prev     <= 4'hF;
             key_curr     <= 4'hF;
             key_valid    <= 1'b0;
             key_code     <= 4'd0;
             stable       <= 1'b0;
+            stable_d     <= 1'b0;
         end else begin
-            key_valid <= 1'b0;  // pulse
+            key_valid <= 1'b0;
+            stable_d <= stable;
 
             // Scan rows in sequence
             scan_idx <= (scan_idx == 2'd3) ? 2'd0 : scan_idx + 2'd1;
@@ -56,8 +58,8 @@ module keyboard_scan #(
                 debounce_cnt <= debounce_cnt + 32'd1;
             end
 
-            // When stable and a key is newly pressed
-            if (stable && (col != 4'hF) && (key_prev != col)) begin
+            // Detect key press on rising edge of stable (debounce complete)
+            if (stable && !stable_d && (col != 4'hF)) begin
                 key_code  <= {scan_idx,
                              col[0] == 1'b0 ? 2'd0 :
                              col[1] == 1'b0 ? 2'd1 :
