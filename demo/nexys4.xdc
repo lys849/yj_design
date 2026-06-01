@@ -85,9 +85,9 @@ set_property PACKAGE_PIN C4 [get_ports debug_rx]
 set_property IOSTANDARD LVCMOS33 [get_ports debug_rx]
 
 # ============================================
-# Keyboard 4×4 — PMOD JB (8 signals, Nexys4 DDR)
+# Keyboard 4×4 — PMOD JB (Nexys4 DDR pinout)
 #   kb_row[3:0] = FPGA outputs (row scan)
-#   kb_col[3:0] = FPGA inputs  (column read)
+#   kb_col[3:0] = FPGA inputs  (column read, with pullup)
 #   Wiring: JB1..JB4 = kb_row[0..3], JB7..JB10 = kb_col[0..3]
 # ============================================
 set_property PACKAGE_PIN D14 [get_ports {kb_row[0]}]
@@ -108,27 +108,24 @@ set_property IOSTANDARD LVCMOS33 [get_ports {kb_col[2]}]
 set_property PACKAGE_PIN H16 [get_ports {kb_col[3]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {kb_col[3]}]
 
+set_property PULLUP true [get_ports {kb_col[0]}]
+set_property PULLUP true [get_ports {kb_col[1]}]
+set_property PULLUP true [get_ports {kb_col[2]}]
+set_property PULLUP true [get_ports {kb_col[3]}]
+
 # ============================================
 # Fingerprint Sensor (AS608) UART — PMOD JD
-#   fp_sensor_tx = FPGA → sensor (JD3)
-#   fp_sensor_rx = FPGA ← sensor (JD4)
+#   fp_sensor_tx = FPGA → sensor (JD3 = G1)
+#   fp_sensor_rx = FPGA ← sensor (JD4 = G3, with pullup)
 # ============================================
 set_property PACKAGE_PIN G1 [get_ports fp_sensor_tx]
 set_property IOSTANDARD LVCMOS33 [get_ports fp_sensor_tx]
 set_property PACKAGE_PIN G3 [get_ports fp_sensor_rx]
 set_property IOSTANDARD LVCMOS33 [get_ports fp_sensor_rx]
+set_property PULLUP true [get_ports fp_sensor_rx]
 
 # ============================================
-# Buzzer — PMOD JC (JC4 = G6, JC5 = GND, JC6 = VCC)
+# Buzzer — PMOD JC (Nexys4 DDR: JC4 = G6)
 # ============================================
 set_property PACKAGE_PIN G6 [get_ports buzzer]
 set_property IOSTANDARD LVCMOS33 [get_ports buzzer]
-
-# ============================================
-# Pull-ups for floating inputs
-# ============================================
-set_property PULLUP true [get_ports fp_sensor_rx]
-set_property PULLUP true [get_ports {kb_col[0]}]
-set_property PULLUP true [get_ports {kb_col[1]}]
-set_property PULLUP true [get_ports {kb_col[2]}]
-set_property PULLUP true [get_ports {kb_col[3]}]
