@@ -1,10 +1,10 @@
-// UART Transmitter - 8N1, configurable baud rate
-// bit_idx[3:0] tracks the NEXT bit to output: 0-7=data bits, 8=stop bit
+// UART Transmitter - configurable baud rate & stop bits (8N1 or 8N2)
 `timescale 1ns / 1ps
 
 module uart_tx #(
     parameter CLK_FREQ  = 50_000_000,
-    parameter BAUD_RATE = 57600
+    parameter BAUD_RATE = 57600,
+    parameter STOP_BITS = 1
 ) (
     input  wire       clk,
     input  wire       rst_n,
@@ -25,12 +25,14 @@ module uart_tx #(
     reg [15:0] bit_cnt;
     reg [3:0]  bit_idx;    // 0-7: data bits, 8: stop bit
     reg [7:0]  tx_data_r;  // latched tx_data at start
+    reg [1:0]  stop_idx;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state     <= S_IDLE;
             bit_cnt   <= 16'd0;
             bit_idx   <= 4'd0;
+            stop_idx  <= 2'd0;
             tx        <= 1'b1;
             tx_busy   <= 1'b0;
             tx_done   <= 1'b0;
@@ -40,10 +42,11 @@ module uart_tx #(
 
             case (state)
                 S_IDLE: begin
-                    tx      <= 1'b1;
-                    tx_busy <= 1'b0;
-                    bit_cnt <= 16'd0;
-                    bit_idx <= 4'd0;
+                    tx       <= 1'b1;
+                    tx_busy  <= 1'b0;
+                    bit_cnt  <= 16'd0;
+                    bit_idx  <= 4'd0;
+                    stop_idx <= 2'd0;
                     if (tx_start) begin
                         state     <= S_DATA;
                         tx_busy   <= 1'b1;
@@ -70,9 +73,13 @@ module uart_tx #(
                 S_STOP: begin
                     if (bit_cnt == BIT_PERIOD - 1) begin
                         bit_cnt <= 16'd0;
-                        state   <= S_IDLE;
-                        tx_busy <= 1'b0;
-                        tx_done <= 1'b1;
+                        if (stop_idx == STOP_BITS - 1) begin
+                            state   <= S_IDLE;
+                            tx_busy <= 1'b0;
+                            tx_done <= 1'b1;
+                        end else begin
+                            stop_idx <= stop_idx + 2'd1;
+                        end
                     end else begin
                         bit_cnt <= bit_cnt + 16'd1;
                     end

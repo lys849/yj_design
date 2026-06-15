@@ -39,7 +39,8 @@ module spi_flash #(
     localparam S_ERASE_WAIT = 4'd4;
     localparam S_PP        = 4'd5;  // Page Program
     localparam S_PP_WAIT   = 4'd6;
-    localparam S_WAIT_BUSY = 4'd7;  // poll status register
+    localparam S_WAIT_BUSY = 4'd7;  // send RDSR command
+    localparam S_POLL_WIP  = 4'd10; // read status register, check WIP
     localparam S_READ      = 4'd8;
     localparam S_DONE      = 4'd9;
 
@@ -83,7 +84,9 @@ module spi_flash #(
             rd_data   <= 8'd0;
             busy      <= 1'b0;
             done      <= 1'b0;
+            spi_clk_d <= 1'b0;
         end else begin
+            spi_clk_d <= spi_clk;
             done      <= 1'b0;
 
             case (state)
@@ -105,23 +108,20 @@ module spi_flash #(
                 S_WREN: begin
                     spi_cs_n  <= 1'b0;
                     spi_clk_en <= 1'b1;
-                    // Send WREN command (1 byte)
                     if (byte_cnt == 0 && bit_cnt == 0) begin
                         shift_reg <= CMD_WREN;
                         byte_cnt  <= 3'd1;
-                    end
-                    // Shift out bits
-                    if (spi_clk && !spi_clk_d) begin
-                        // Rising edge: output bit
+                    end else if (spi_clk && !spi_clk_d) begin
+                        if (bit_cnt == 4'd7) begin
+                            bit_cnt  <= 4'd0;
+                            state    <= S_WREN_WAIT;
+                            spi_cs_n <= 1'b1;
+                            spi_clk_en <= 1'b0;
+                        end else begin
+                            bit_cnt <= bit_cnt + 4'd1;
+                        end
                         spi_mosi <= shift_reg[7];
                         shift_reg <= {shift_reg[6:0], 1'b0};
-                        bit_cnt   <= bit_cnt + 4'd1;
-                    end
-                    if (bit_cnt == 8 && spi_clk && !spi_clk_d) begin
-                        bit_cnt  <= 4'd0;
-                        state    <= S_WREN_WAIT;
-                        spi_cs_n <= 1'b1;
-                        spi_clk_en <= 1'b0;
                     end
                 end
 
@@ -131,101 +131,131 @@ module spi_flash #(
                 end
 
                 S_ERASE: begin
-                    // Send Sector Erase command + 24-bit address
                     spi_cs_n  <= 1'b0;
                     spi_clk_en <= 1'b1;
                     if (byte_cnt == 0 && bit_cnt == 0) begin
                         shift_reg <= CMD_ERASE;
-                    end
-                    // Simplified: skip full erase, go to program
-                    if (bit_cnt == 8 && spi_clk && !spi_clk_d) begin
-                        bit_cnt  <= 4'd0;
-                        byte_cnt <= byte_cnt + 3'd1;
-                        if (byte_cnt == 4) begin
-                            spi_cs_n <= 1'b1;
-                            spi_clk_en <= 1'b0;
-                            state <= S_PP;
-                            byte_cnt <= 3'd0;
-                        end else begin
-                            shift_reg <= addr[23 - (byte_cnt-1)*8 -: 8];
-                        end
+                        byte_cnt  <= 3'd1;
                     end else if (spi_clk && !spi_clk_d) begin
                         spi_mosi <= shift_reg[7];
                         shift_reg <= {shift_reg[6:0], 1'b0};
-                        bit_cnt <= bit_cnt + 4'd1;
+                        if (bit_cnt == 4'd7) begin
+                            bit_cnt <= 4'd0;
+                            case (byte_cnt)
+                                3'd1: begin shift_reg <= addr[23:16]; byte_cnt <= 3'd2; end
+                                3'd2: begin shift_reg <= addr[15:8];  byte_cnt <= 3'd3; end
+                                3'd3: begin shift_reg <= addr[7:0];   byte_cnt <= 3'd4; end
+                                default: begin
+                                    spi_cs_n   <= 1'b1;
+                                    spi_clk_en <= 1'b0;
+                                    state      <= S_PP;
+                                    byte_cnt   <= 3'd0;
+                                end
+                            endcase
+                        end else begin
+                            bit_cnt <= bit_cnt + 4'd1;
+                        end
                     end
                 end
 
                 S_PP: begin
-                    // Page Program: send PP command + address + data
                     spi_cs_n  <= 1'b0;
                     spi_clk_en <= 1'b1;
                     if (byte_cnt == 0 && bit_cnt == 0) begin
                         shift_reg <= CMD_PP;
-                    end
-                    if (bit_cnt == 8 && spi_clk && !spi_clk_d) begin
-                        bit_cnt <= 4'd0;
-                        byte_cnt <= byte_cnt + 3'd1;
-                        if (byte_cnt == 1) shift_reg <= addr[23:16];
-                        else if (byte_cnt == 2) shift_reg <= addr[15:8];
-                        else if (byte_cnt == 3) shift_reg <= addr[7:0];
-                        else begin
-                            // Send data byte
-                            shift_reg <= wr_data;
-                            if (byte_cnt > 3) begin
-                                spi_cs_n <= 1'b1;
-                                spi_clk_en <= 1'b0;
-                                state <= S_WAIT_BUSY;
-                                byte_cnt <= 3'd0;
-                                bit_cnt <= 4'd0;
-                            end
-                        end
-                    end else if (spi_clk && !spi_clk_d && byte_cnt > 0) begin
+                        byte_cnt  <= 3'd1;
+                    end else if (spi_clk && !spi_clk_d) begin
                         spi_mosi <= shift_reg[7];
                         shift_reg <= {shift_reg[6:0], 1'b0};
-                        bit_cnt <= bit_cnt + 4'd1;
+                        if (bit_cnt == 4'd7) begin
+                            bit_cnt <= 4'd0;
+                            case (byte_cnt)
+                                3'd1: begin shift_reg <= addr[23:16]; byte_cnt <= 3'd2; end
+                                3'd2: begin shift_reg <= addr[15:8];  byte_cnt <= 3'd3; end
+                                3'd3: begin shift_reg <= addr[7:0];   byte_cnt <= 3'd4; end
+                                3'd4: begin shift_reg <= wr_data;     byte_cnt <= 3'd5; end
+                                default: begin
+                                    spi_cs_n   <= 1'b1;
+                                    spi_clk_en <= 1'b0;
+                                    state      <= S_WAIT_BUSY;
+                                    byte_cnt   <= 3'd0;
+                                end
+                            endcase
+                        end else begin
+                            bit_cnt <= bit_cnt + 4'd1;
+                        end
                     end
                 end
 
                 S_WAIT_BUSY: begin
-                    // In real system, poll WIP bit of status register
-                    // Simplified: wait 2ms (100000 cycles at 50MHz)
-                    state <= S_DONE;
+                    spi_cs_n   <= 1'b0;
+                    spi_clk_en <= 1'b1;
+                    if (bit_cnt == 0 && byte_cnt == 0) begin
+                        shift_reg <= CMD_RDSR;
+                        byte_cnt  <= 3'd1;
+                    end else if (spi_clk && !spi_clk_d) begin
+                        spi_mosi <= shift_reg[7];
+                        shift_reg <= {shift_reg[6:0], 1'b0};
+                        if (bit_cnt == 4'd7) begin
+                            bit_cnt <= 4'd0;
+                            state   <= S_POLL_WIP;
+                        end else begin
+                            bit_cnt <= bit_cnt + 4'd1;
+                        end
+                    end
+                end
+
+                S_POLL_WIP: begin
+                    if (spi_clk && !spi_clk_d) begin
+                        shift_reg <= {shift_reg[6:0], spi_miso};
+                        if (bit_cnt == 4'd7) begin
+                            bit_cnt    <= 4'd0;
+                            spi_cs_n   <= 1'b1;
+                            spi_clk_en <= 1'b0;
+                            if ({shift_reg[6:0], spi_miso} & 8'h01) begin
+                                state    <= S_WAIT_BUSY;
+                                byte_cnt <= 3'd0;
+                            end else begin
+                                state <= S_DONE;
+                            end
+                        end else begin
+                            bit_cnt <= bit_cnt + 4'd1;
+                        end
+                    end
                 end
 
                 S_READ: begin
-                    // Read Data: send READ command + 24-bit addr, then receive
                     spi_cs_n  <= 1'b0;
                     spi_clk_en <= 1'b1;
                     if (byte_cnt == 0 && bit_cnt == 0) begin
                         shift_reg <= CMD_READ;
-                    end
-                    if (spi_clk && !spi_clk_d) begin
-                        if (byte_cnt < 4) begin
+                        byte_cnt  <= 3'd1;
+                    end else if (spi_clk && !spi_clk_d) begin
+                        if (byte_cnt < 5) begin
                             spi_mosi <= shift_reg[7];
                             shift_reg <= {shift_reg[6:0], 1'b0};
-                            bit_cnt <= bit_cnt + 4'd1;
-                            if (bit_cnt == 7) begin
+                            if (bit_cnt == 4'd7) begin
                                 bit_cnt <= 4'd0;
-                                byte_cnt <= byte_cnt + 3'd1;
                                 case (byte_cnt)
-                                    0: shift_reg <= CMD_READ;
-                                    1: shift_reg <= addr[23:16];
-                                    2: shift_reg <= addr[15:8];
-                                    3: shift_reg <= addr[7:0];
+                                    3'd1: begin shift_reg <= addr[23:16]; byte_cnt <= 3'd2; end
+                                    3'd2: begin shift_reg <= addr[15:8];  byte_cnt <= 3'd3; end
+                                    3'd3: begin shift_reg <= addr[7:0];   byte_cnt <= 3'd4; end
+                                    default: byte_cnt <= 3'd5;
                                 endcase
+                            end else begin
+                                bit_cnt <= bit_cnt + 4'd1;
                             end
                         end else begin
-                            // Receive data byte
                             shift_reg <= {shift_reg[6:0], spi_miso};
-                            bit_cnt <= bit_cnt + 4'd1;
-                            if (bit_cnt == 7) begin
-                                bit_cnt  <= 4'd0;
-                                rd_data  <= {shift_reg[6:0], spi_miso};
-                                spi_cs_n <= 1'b1;
+                            if (bit_cnt == 4'd7) begin
+                                bit_cnt    <= 4'd0;
+                                rd_data    <= {shift_reg[6:0], spi_miso};
+                                spi_cs_n   <= 1'b1;
                                 spi_clk_en <= 1'b0;
-                                state <= S_DONE;
-                                byte_cnt <= 3'd0;
+                                state      <= S_DONE;
+                                byte_cnt   <= 3'd0;
+                            end else begin
+                                bit_cnt <= bit_cnt + 4'd1;
                             end
                         end
                     end
@@ -241,15 +271,5 @@ module spi_flash #(
             endcase
         end
     end
-
-    // Edge detection for SPI clock
-    reg spi_clk_prev;
-    always @(posedge clk) spi_clk_prev <= spi_clk;
-    wire spi_clk_d_impl;
-    assign spi_clk_d_impl = spi_clk_prev;
-    // Note: In the main block, use the delayed version
-
-    // Regenerate spi_clk_d signal
-    always @(posedge clk) spi_clk_d <= spi_clk;
 
 endmodule

@@ -1,11 +1,11 @@
 // Fingerprint Sensor Controller (AS608 protocol per AS60x Communication Manual)
 // Packet: Header(EF01) + Addr(4B) + PkgID(01) + Len(2B) + Instr + Params + Chksum(2B)
 // Response: Header(EF01) + Addr(4B) + PkgID(07) + Len(2B) + Confirm + Params + Chksum(2B)
-// UART: 57600 baud, 8 data bits, 2 stop bits, no parity
+// UART: 57600 baud, 8N2
 `timescale 1ns / 1ps
 
 module fingerprint_ctrl #(
-    parameter CLK_FREQ  = 50_000_000,
+    parameter CLK_FREQ  = 100_000_000,
     parameter BAUD_RATE = 57600
 ) (
     input  wire         clk,
@@ -49,13 +49,13 @@ module fingerprint_ctrl #(
     reg [4:0]  pkt_len;
     reg [4:0]  byte_idx;
 
-    reg [7:0]  resp_buf [0:19];
-    reg [4:0]  rsp_cnt;
-    reg [4:0]  resp_total;
+    reg [7:0]  resp_buf [0:31];
+    reg [5:0]  rsp_cnt;
+    reg [5:0]  resp_total;
 
     reg [2:0]  state;
     reg [23:0] timeout_cnt;
-    localparam TIMEOUT_MAX = 24'd9_999_999;
+    localparam TIMEOUT_MAX = CLK_FREQ / 5; // 200ms
 
     reg [7:0]  cur_opcode;
     reg [15:0] cur_param;
@@ -72,8 +72,8 @@ module fingerprint_ctrl #(
             cmd_done    <= 1'b0;
             byte_idx    <= 5'd0;
             pkt_len     <= 5'd0;
-            rsp_cnt     <= 5'd0;
-            resp_total  <= 5'd0;
+            rsp_cnt     <= 6'd0;
+            resp_total  <= 6'd0;
             timeout_cnt <= 24'd0;
             cur_opcode  <= 8'd0;
             cur_param   <= 16'd0;
@@ -85,9 +85,9 @@ module fingerprint_ctrl #(
 
             case (state)
                 S_IDLE: begin
-                    status  <= 8'd0;
-                    rsp_cnt <= 5'd0;
-                    resp_total <= 5'd0;
+                    status      <= 8'd0;
+                    rsp_cnt     <= 6'd0;
+                    resp_total  <= 6'd0;
                     timeout_cnt <= 24'd0;
                     if (cmd_start) begin
                         cur_opcode <= cmd_opcode;
@@ -107,7 +107,7 @@ module fingerprint_ctrl #(
                     pkt[6] <= 8'h01;
 
                     case (cur_opcode)
-                        8'h02: begin
+                        8'h02: begin // GenChar: BufferID
                             pkt[7]  <= 8'h00; pkt[8]  <= 8'h04;
                             pkt[9]  <= cur_opcode;
                             pkt[10] <= cur_param[7:0];
@@ -115,7 +115,7 @@ module fingerprint_ctrl #(
                             param_end <= 5'd11;
                             pkt_len <= 5'd13;
                         end
-                        8'h04: begin
+                        8'h04: begin // Search: BufferID + StartPage + PageNum
                             pkt[7]  <= 8'h00; pkt[8]  <= 8'h08;
                             pkt[9]  <= cur_opcode;
                             pkt[10] <= cur_param[15:8];
@@ -129,7 +129,7 @@ module fingerprint_ctrl #(
                             param_end <= 5'd15;
                             pkt_len <= 5'd17;
                         end
-                        8'h06, 8'h07: begin
+                        8'h06, 8'h07: begin // StoreChar/LoadChar: BufferID + PageID
                             pkt[7]  <= 8'h00; pkt[8]  <= 8'h06;
                             pkt[9]  <= cur_opcode;
                             pkt[10] <= cur_param[15:8];
@@ -141,7 +141,7 @@ module fingerprint_ctrl #(
                             param_end <= 5'd13;
                             pkt_len <= 5'd15;
                         end
-                        8'h0C: begin
+                        8'h0C: begin // DeletChar: PageID + Count=1
                             pkt[7]  <= 8'h00; pkt[8]  <= 8'h07;
                             pkt[9]  <= cur_opcode;
                             pkt[10] <= cur_param[15:8];
@@ -155,7 +155,7 @@ module fingerprint_ctrl #(
                             param_end <= 5'd14;
                             pkt_len <= 5'd16;
                         end
-                        default: begin
+                        default: begin // Simple commands: GetImage, Match, RegModel, Empty, Enroll, Identify, etc.
                             pkt[7]  <= 8'h00; pkt[8]  <= 8'h03;
                             pkt[9]  <= cur_opcode;
                             chksum  <= 16'h01 + 16'h0003 + {8'd0, cur_opcode};
@@ -171,19 +171,18 @@ module fingerprint_ctrl #(
                 S_SEND: begin
                     if (!tx_busy) begin
                         if (byte_idx < pkt_len) begin
-                            if (byte_idx == param_end) begin
+                            if (byte_idx == param_end)
                                 tx_data <= chksum[15:8];
-                            end else if (byte_idx == param_end + 5'd1) begin
+                            else if (byte_idx == param_end + 5'd1)
                                 tx_data <= chksum[7:0];
-                            end else begin
+                            else
                                 tx_data <= pkt[byte_idx];
-                            end
                             tx_start <= 1'b1;
                             byte_idx <= byte_idx + 5'd1;
                         end else begin
                             state       <= S_WAIT_RESP;
-                            rsp_cnt     <= 5'd0;
-                            resp_total  <= 5'd0;
+                            rsp_cnt     <= 6'd0;
+                            resp_total  <= 6'd0;
                             timeout_cnt <= 24'd0;
                         end
                     end
@@ -193,7 +192,7 @@ module fingerprint_ctrl #(
                     timeout_cnt <= timeout_cnt + 24'd1;
                     if (rx_valid) begin
                         resp_buf[0] <= rx_data;
-                        rsp_cnt     <= 5'd1;
+                        rsp_cnt     <= 6'd1;
                         state       <= S_READ_RESP;
                         timeout_cnt <= 24'd0;
                     end else if (timeout_cnt >= TIMEOUT_MAX) begin
@@ -206,20 +205,18 @@ module fingerprint_ctrl #(
                 S_READ_RESP: begin
                     timeout_cnt <= timeout_cnt + 24'd1;
                     if (rx_valid) begin
-                        if (rsp_cnt < 5'd20)
+                        if (rsp_cnt < 6'd32)
                             resp_buf[rsp_cnt] <= rx_data;
-                        rsp_cnt     <= rsp_cnt + 5'd1;
+                        rsp_cnt     <= rsp_cnt + 6'd1;
                         timeout_cnt <= 24'd0;
 
-                        if (rsp_cnt == 5'd8) begin
-                            resp_total <= 5'd9 + rx_data[4:0];
-                        end
+                        if (rsp_cnt == 6'd8)
+                            resp_total <= 6'd9 + {1'b0, rx_data[4:0]};
 
-                        if (resp_total != 5'd0 && (rsp_cnt + 5'd1) >= resp_total) begin
+                        if (resp_total != 6'd0 && (rsp_cnt + 6'd1) >= resp_total)
                             state <= S_PARSE;
-                        end
                     end else if (timeout_cnt >= TIMEOUT_MAX) begin
-                        if (rsp_cnt >= 5'd10)
+                        if (rsp_cnt >= 6'd10)
                             state <= S_PARSE;
                         else begin
                             status   <= 8'd3;

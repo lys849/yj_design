@@ -58,19 +58,30 @@
 #define FP_CMD_READ_INDEX    0x1F
 
 // ============================================
-// Fingerprint sensor response codes
+// Fingerprint sensor response codes (AS60x protocol)
 // ============================================
 #define FP_OK                0x00
 #define FP_ERR_RECV          0x01
 #define FP_ERR_NO_FINGER     0x02
-#define FP_ERR_INPUT         0x03
-#define FP_ERR_OVER_DISORDER 0x04
-#define FP_ERR_OVER_LIGHT    0x05
-#define FP_ERR_QUALITY       0x06
-#define FP_ERR_NO_MATCH      0x09
-#define FP_ERR_DUPLICATE     0x0A
-#define FP_ERR_TIMEOUT       0x0B
-#define FP_ERR_NOT_FOUND     0x10
+#define FP_ERR_CAPTURE       0x03
+#define FP_ERR_DRY           0x04
+#define FP_ERR_WET           0x05
+#define FP_ERR_MESSY         0x06
+#define FP_ERR_FEW_FEATURE   0x07
+#define FP_ERR_NO_MATCH      0x08
+#define FP_ERR_NOT_FOUND     0x09
+#define FP_ERR_MERGE_FAIL    0x0A
+#define FP_ERR_ADDR_RANGE    0x0B
+#define FP_ERR_TEMPLATE_RD   0x0C
+#define FP_ERR_UPLOAD        0x0D
+#define FP_ERR_NO_FOLLOWUP   0x0E
+#define FP_ERR_IMG_UPLOAD    0x0F
+#define FP_ERR_DELETE        0x10
+#define FP_ERR_CLEAR         0x11
+#define FP_ERR_PWD           0x13
+#define FP_ERR_FLASH         0x18
+#define FP_ERR_ENROLL        0x1E
+#define FP_ERR_DB_FULL       0x1F
 
 // ============================================
 // System constants

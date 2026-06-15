@@ -6,20 +6,17 @@
 // Low-level: send command to fingerprint sensor
 // ============================================
 static int fp_send_command(uint8_t cmd, uint16_t param) {
-    // Build 32-bit command word: {start_bit, opcode[7:0], param[15:0]}
     uint32_t cmd_word = (1u << 31) | ((uint32_t)cmd << 16) | (uint32_t)param;
-
     REG_FP_CMD = cmd_word;
 
-    // Wait for command to complete (poll status)
     uint32_t timeout = 1000000;
     while (timeout--) {
         uint32_t resp = REG_FP_RESP;
-        if ((resp >> 24) != 0) {  // status != idle
-            return 0;  // success
-        }
+        uint8_t st = (resp >> 24) & 0xFF;
+        if (st == 2) return 0;
+        if (st == 3) return -1;
     }
-    return -1;  // timeout
+    return -1;
 }
 
 // ============================================
@@ -41,14 +38,14 @@ int fp_register_model(void) {
     return fp_send_command(FP_CMD_REG_MODEL, 0);
 }
 
-// Store template to flash library
+// Store template to flash library (from CharBuffer2 after RegModel)
 int fp_store_template(uint16_t page_id) {
-    return fp_send_command(FP_CMD_STORE, page_id);
+    return fp_send_command(FP_CMD_STORE, (2u << 8) | (page_id & 0xFF));
 }
 
-// Load template from flash library
+// Load template from flash library (into CharBuffer1)
 int fp_load_template(uint16_t page_id) {
-    return fp_send_command(FP_CMD_LOAD_CHAR, page_id);
+    return fp_send_command(FP_CMD_LOAD_CHAR, (1u << 8) | (page_id & 0xFF));
 }
 
 // Delete template from flash library
@@ -74,12 +71,11 @@ int fp_match(uint16_t* score) {
 
 // 1:N search - search finger in entire library
 int fp_search(uint16_t* page_id, uint16_t* score) {
-    // Search from page 1 to MAX_ACCOUNTS
-    int ret = fp_send_command(FP_CMD_SEARCH, (1 << 8) | MAX_ACCOUNTS);
+    int ret = fp_send_command(FP_CMD_SEARCH, (1u << 8) | MAX_ACCOUNTS);
     if (ret == 0) {
         uint32_t resp = REG_FP_RESP;
-        if (page_id) *page_id = (resp >> 8) & 0xFF;
-        if (score) *score = resp & 0xFF;
+        if (page_id) *page_id = resp & 0xFFFF;
+        if (score) *score = 0;
     }
     return ret;
 }
@@ -164,9 +160,8 @@ int fp_verify_fingerprint(uint16_t page_id) {
 }
 
 // Identify fingerprint (1:N search)
-// Returns: page_id if found, -1 if not found
+// Returns: 0 if found (page_id set), -1 if not found, -2 if error
 int fp_identify_fingerprint(uint16_t* page_id) {
-    // Capture and process
     int ret = fp_capture_image();
     if (ret != 0) return -2;
 
@@ -175,11 +170,8 @@ int fp_identify_fingerprint(uint16_t* page_id) {
 
     uint16_t pid, score;
     ret = fp_search(&pid, &score);
-    if (ret != 0) return -2;
+    if (ret != 0) return -1;
 
-    if (score > 80) {
-        if (page_id) *page_id = pid;
-        return 0;
-    }
-    return -1;
+    if (page_id) *page_id = pid;
+    return 0;
 }
