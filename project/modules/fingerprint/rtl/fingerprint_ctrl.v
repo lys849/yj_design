@@ -155,6 +155,19 @@ module fingerprint_ctrl #(
                             param_end <= 5'd14;
                             pkt_len <= 5'd16;
                         end
+                        8'h13: begin // VfyPwd: 4-byte password
+                            pkt[7]  <= 8'h00; pkt[8]  <= 8'h07;
+                            pkt[9]  <= 8'h13;
+                            pkt[10] <= cur_param[15:8];
+                            pkt[11] <= cur_param[7:0];
+                            pkt[12] <= 8'h00;
+                            pkt[13] <= 8'h00;
+                            chksum  <= 16'h01 + 16'h0007 + 16'h0013
+                                     + {8'd0, cur_param[15:8]}
+                                     + {8'd0, cur_param[7:0]};
+                            param_end <= 5'd14;
+                            pkt_len <= 5'd16;
+                        end
                         default: begin // Simple commands: GetImage, Match, RegModel, Empty, Enroll, Identify, etc.
                             pkt[7]  <= 8'h00; pkt[8]  <= 8'h03;
                             pkt[9]  <= cur_opcode;
