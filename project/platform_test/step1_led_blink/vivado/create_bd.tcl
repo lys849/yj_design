@@ -24,6 +24,28 @@ apply_bd_automation -rule xilinx.com:bd_rule:microblaze -config { \
 } [get_bd_cells microblaze_0]
 
 # ============================================
+# 2.1 修正时钟输入: 差分 → 单端
+#     Nexys4 DDR 板载 100MHz 单端时钟 (E3)
+#     Vivado 2025.2 的 Block Automation 默认创建差分输入，需手动修正
+# ============================================
+set clk_wiz [get_bd_cells -filter {VLNV =~ *clk_wiz*}]
+
+set diff_intf [get_bd_intf_ports -quiet -filter {VLNV =~ *diff_clock*}]
+if {[llength $diff_intf] > 0} {
+    set diff_nets [get_bd_intf_nets -quiet -of_objects $diff_intf]
+    if {[llength $diff_nets] > 0} { delete_bd_objs $diff_nets }
+    delete_bd_objs $diff_intf
+}
+
+set_property -dict [list \
+    CONFIG.PRIM_SOURCE {Single_ended_clock_capable_pin} \
+    CONFIG.PRIM_IN_FREQ {100.000} \
+] $clk_wiz
+
+create_bd_port -dir I -type clk -freq_hz 100000000 sys_clock
+connect_bd_net [get_bd_ports sys_clock] [get_bd_pins $clk_wiz/clk_in1]
+
+# ============================================
 # 3. 修正复位极性
 #    Nexys4 DDR 的 CPU_RESET 按钮是低有效（按下=0）
 #    但 proc_sys_reset 的 ext_reset_in 期望高有效

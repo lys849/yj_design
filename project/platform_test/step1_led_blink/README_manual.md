@@ -4,9 +4,10 @@
 验证 MicroBlaze 软核处理器能在 Nexys4 DDR 上正常运行。LED 以跑马灯方式闪烁。
 
 ## 前置条件
-- Vivado 2022.2 已安装
-- Vitis 2022.2 已安装
+- Vivado + Vitis 已安装（支持 **2022.2** 或 **2025.2**）
 - Nexys4 DDR 开发板 + MicroUSB 数据线
+
+> **版本说明**: 本文档同时覆盖 Vivado/Vitis 2022.2（经典 Eclipse IDE）和 2025.2（Vitis Unified IDE）。Vitis 部分会分版本标注，Vivado 部分操作基本一致。
 
 ---
 
@@ -95,6 +96,13 @@ Nexys4 DDR 的 CPU_RESET 按钮是**低有效**（按下=0），但复位模块�
 2. 确认它已连接到外部端口（应该叫 `sys_clock` 或 `clk_in1_0`）
 3. 如果端口名不是 `sys_clock`，**双击**重命名为 `sys_clock`
 
+> **Vivado 2025.2 注意**: Block Automation 可能默认创建**差分时钟**输入（`diff_clock_rtl_0_clk_n/clk_p`），但 Nexys4 DDR 使用**单端 100MHz 时钟**（E3 引脚）。如果看到差分时钟端口，需要：
+> 1. 双击 `clk_wiz_1` → 将 Input Clock 改为 **Single ended clock capable pin**
+> 2. 删除差分时钟外部端口
+> 3. 将 `clk_in1` 引脚 Make External，重命名为 `sys_clock`
+>
+> 使用 `create_bd.tcl` 脚本时此问题已自动处理。
+
 ### 2.8 验证设计
 1. 菜单栏 → **Tools** → **Validate Design**（或按 **F6**）
 2. 应显示绿色对话框 **"Validation successful"**
@@ -144,26 +152,30 @@ set_property IOSTANDARD LVCMOS33 [get_ports {led[3]}]
 
 ---
 
-## 第五部分：导出硬件 + 启动 Vitis
+## 第五部分：导出硬件
 
 1. 菜单 **File** → **Export Hardware**
 2. 勾选 **Include bitstream** → **Next** → **Finish**
    - 导出的 `.xsa` 文件位于工程目录下
-3. 菜单 **Tools** → **Launch Vitis IDE**
-4. Workspace 选择一个空文件夹（如工程目录下新建 `vitis_workspace`）
 
 ---
 
 ## 第六部分：创建 Vitis 应用
 
-### 6.1 创建平台工程
+### ▸ Vitis 2022.2（经典 Eclipse IDE）
+
+#### 6.1 启动 Vitis
+1. 在 Vivado 中：**Tools** → **Launch Vitis IDE**
+2. Workspace 选择一个空文件夹（如工程目录下新建 `vitis_workspace`）
+
+#### 6.2 创建平台工程
 1. **File** → **New** → **Platform Project**
 2. Platform project name: `step1_platform`
 3. 选择 **Create from XSA** → 浏览到刚才导出的 `.xsa` 文件
 4. **Finish**
 5. 等待平台工程构建完成
 
-### 6.2 创建应用工程
+#### 6.3 创建应用工程
 1. **File** → **New** → **Application Project**
 2. 点击 **Next**
 3. 选择刚创建的平台 `step1_platform` → **Next**
@@ -171,15 +183,48 @@ set_property IOSTANDARD LVCMOS33 [get_ports {led[3]}]
 5. Domain 保持默认 → **Next**
 6. Template 选择 **Empty Application** → **Finish**
 
-### 6.3 添加源代码
+#### 6.4 添加源代码
 1. 展开 `step1_app` → `src` 文件夹
 2. 右键 `src` → **Import Sources**
 3. 浏览到 `platform_test/step1_led_blink/sw/` → 选择 `main.c`
 4. 或者：右键 `src` → **New** → **File** → 命名 `main.c`，然后把 `sw/main.c` 的内容粘贴进去
 
-### 6.4 编译
+#### 6.5 编译
 1. 右键 `step1_app` → **Build Project**
 2. 等待编译完成（Console 应显示 "Build Finished"）
+
+---
+
+### ▸ Vitis 2025.2（Unified IDE，VS Code 风格）
+
+> Vitis 2023.2 起改为 **Vitis Unified IDE**，操作界面和术语与经典版完全不同。
+
+#### 6.1 启动 Vitis
+1. 在 Vivado 中：**Tools** → **Launch Vitis IDE**（或从开始菜单单独打开）
+2. 选择 Workspace 路径（如工程目录下新建 `vitis_workspace`）
+
+#### 6.2 创建 Platform Component
+1. **File** → **New Component** → **Platform**
+2. Component name: `step1_platform` → **Next**
+3. **Browse** 选择 Vivado 导出的 `.xsa` 文件 → **Next**
+4. Operating System: `standalone`，Processor: `microblaze_0` → **Finish**
+5. 左侧 **FLOW** 面板 → 点击 Platform 下的 **Build** 构建平台（或右键 Platform Component → Build）
+
+#### 6.3 创建 Application Component
+1. **File** → **New Component** → **Application**
+2. Component name: `step1_app` → **Next**
+3. 选择刚创建的 Platform `step1_platform` → **Next**
+4. Domain: `standalone on microblaze_0` → **Next**
+5. Template: **Empty Application (C)** → **Finish**
+
+#### 6.4 添加源代码
+1. 在左侧 **Explorer** 面板中找到 `step1_app` → `src` 目录
+2. 将 `sw/main.c` 复制到 `src/` 目录中（可直接在文件管理器中复制，或在 Explorer 中右键 Import）
+
+#### 6.5 编译
+1. 左侧 **FLOW** 面板 → 点击 Application 下的 **Build**
+2. 或右键 `step1_app` → **Build**
+3. 底部 Terminal 应显示 "Build Finished"
 
 ---
 
@@ -187,8 +232,14 @@ set_property IOSTANDARD LVCMOS33 [get_ports {led[3]}]
 
 1. 用 MicroUSB 数据线连接 Nexys4 DDR 的 **PROG** 口到电脑
 2. 打开开发板电源
-3. 在 Vitis 中：**Xilinx** → **Program FPGA** → 选择 bitstream → **Program**
+
+### ▸ Vitis 2022.2
+3. **Xilinx** → **Program FPGA** → 选择 bitstream → **Program**
 4. 右键 `step1_app` → **Run As** → **Launch on Hardware (Single Application Debug)**
+
+### ▸ Vitis 2025.2
+3. 左侧 **FLOW** 面板 → **Program Device**（自动选择 bitstream）
+4. **FLOW** 面板 → **Run**（或 **Debug** 进入调试模式）
 
 ---
 
@@ -201,7 +252,10 @@ set_property IOSTANDARD LVCMOS33 [get_ports {led[3]}]
 
 | 现象 | 可能原因 |
 |------|----------|
-| Generate Bitstream 报错 | XDC 端口名与 Block Design 不匹配——检查大小写和端口名 |
-| 编译报 `xparameters.h` 找不到 | 平台工程未正确构建——右键平台工程 → Build |
+| Generate Bitstream 报错 `NSTD-1` / `UCIO-1` | Clocking Wizard 使用了差分时钟输入——参见 2.7 节修正方法 |
+| Generate Bitstream 报端口名不匹配 | XDC 端口名与 Block Design 不匹配——检查大小写和端口名 |
+| 编译报 `xparameters.h` 找不到 | 平台工程未正确构建——重新 Build Platform |
 | 下载后 LED 不亮 | 检查 MicroUSB 是否连接的 PROG 口（不是 UART 口）|
 | LED 全亮不闪烁 | 程序可能在 usleep 处卡住——检查 BSP 中 sleep 驱动是否启用 |
+| Vitis 2025.2 找不到 "New → Platform Project" | 新版改为 **File → New Component → Platform**，参见第六部分 |
+| Vivado 2025.2 打开 2022.2 工程报错 | 建议用 TCL 脚本从头重建工程，不要直接升级旧工程文件 |

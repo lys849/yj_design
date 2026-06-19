@@ -3,8 +3,13 @@
 #include "xgpio.h"
 #include "sleep.h"
 
-#define LED_GPIO_ID   XPAR_AXI_GPIO_0_DEVICE_ID
 #define LED_CHANNEL   1
+
+#ifdef XPAR_AXI_GPIO_0_DEVICE_ID
+#define LED_GPIO_ID   XPAR_AXI_GPIO_0_DEVICE_ID
+#else
+#define LED_GPIO_ID   XPAR_AXI_GPIO_0_BASEADDR
+#endif
 
 int main(void)
 {

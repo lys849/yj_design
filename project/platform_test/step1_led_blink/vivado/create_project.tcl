@@ -7,7 +7,8 @@ set project_name "step1_led_blink"
 set project_dir  "./vivado_project"
 set part         "xc7a100tcsg324-1"
 
-# 如果工程已存在则删除重建
+# 如果工程已存在则先关闭再删除
+catch {close_project -quiet}
 if {[file exists $project_dir]} {
     file delete -force $project_dir
 }

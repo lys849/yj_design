@@ -4,17 +4,19 @@
 与手动操作版相同：MicroBlaze + LED 跑马灯。使用 TCL 脚本自动完成工程创建和 Block Design 搭建。
 
 ## 前置条件
-- Vivado 2022.2 + Vitis 2022.2 已安装
+- Vivado + Vitis 已安装（支持 **2022.2** 或 **2025.2**）
 - Nexys4 DDR 开发板
+
+> **版本说明**: Vivado TCL 脚本通用。Vitis 部分按版本分别说明。
 
 ---
 
 ## 操作步骤
 
 ### 1. 打开 Vivado，进入工作目录
-打开 Vivado 2022.2，在底部 **Tcl Console** 中输入（用正斜杠，替换为你的实际路径）：
+打开 Vivado，在底部 **Tcl Console** 中输入（替换为你的实际路径）：
 ```tcl
-cd D:/yj_design/project/platform_test/step1_led_blink
+cd D:/Projects/yj_design/project/platform_test/step1_led_blink
 ```
 
 ### 2. 执行工程创建脚本
@@ -39,20 +41,35 @@ source vivado/create_bd.tcl
 ### 4. 生成 Bitstream
 左侧 **Flow Navigator** → **Generate Bitstream** → 确认运行 Synthesis 和 Implementation → 等待 3-10 分钟。
 
-### 5. 导出硬件 + 启动 Vitis
+### 5. 导出硬件
 1. **File** → **Export Hardware** → 勾选 **Include bitstream** → **Finish**
-2. **Tools** → **Launch Vitis IDE**
 
 ### 6. 创建 Vitis 应用
-1. **File** → **New** → **Platform Project** → 选择导出的 `.xsa` 文件
-2. **File** → **New** → **Application Project** → 选 **Empty Application**
-3. 将 `sw/main.c` 导入到应用工程的 `src/` 目录
-4. **Build Project**
+
+#### ▸ Vitis 2022.2（经典 Eclipse IDE）
+1. **Tools** → **Launch Vitis IDE** → 设置 Workspace
+2. **File** → **New** → **Platform Project** → 选择导出的 `.xsa` 文件 → Build
+3. **File** → **New** → **Application Project** → 选 **Empty Application**
+4. 将 `sw/main.c` 导入到应用工程的 `src/` 目录
+5. **Build Project**
+
+#### ▸ Vitis 2025.2（Unified IDE，VS Code 风格）
+1. **Tools** → **Launch Vitis IDE**（或从开始菜单打开）→ 设置 Workspace
+2. **File** → **New Component** → **Platform** → 选择 `.xsa` 文件，OS `standalone`，Processor `microblaze_0` → Build
+3. **File** → **New Component** → **Application** → 选择 Platform，Template **Empty Application (C)**
+4. 将 `sw/main.c` 复制到 Application 的 `src/` 目录
+5. **FLOW** 面板 → **Build**
 
 ### 7. 下载运行
 1. MicroUSB 连接开发板 PROG 口
+
+#### ▸ Vitis 2022.2
 2. **Xilinx** → **Program FPGA**
 3. **Run As** → **Launch on Hardware**
+
+#### ▸ Vitis 2025.2
+2. **FLOW** 面板 → **Program Device**
+3. **FLOW** 面板 → **Run**
 
 ---
 
