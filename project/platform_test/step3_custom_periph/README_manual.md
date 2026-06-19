@@ -5,6 +5,7 @@
 
 ## 前置条件
 - 已完成 Step 2（理解 MicroBlaze + AXI 基本流程）
+- Vivado + Vitis 已安装（支持 **2022.2** 或 **2025.2**）
 
 ---
 
@@ -163,6 +164,8 @@ d) **添加 keyboard_scan.v 源文件到 IP 工程**：
 
 创建方式同 Step 2，将 `sw/main.c` 导入工程。
 
+> **Vitis 版本差异**: 2022.2 使用 Platform/Application Project，2025.2 使用 Platform/Application Component。详见 Step 1 的 `README_manual.md` 第六部分。
+
 关键代码说明：
 ```c
 // 读取键盘寄存器
@@ -195,3 +198,5 @@ Key pressed: code=15
 | Validate Design 报 AXI 接口错误 | AXI 端口命名不规范——检查大小写和前缀是否为 S_AXI_ |
 | C 代码编译报 BASEADDR 未定义 | `xparameters.h` 中没有自定义 IP 的条目——检查 IP 是否在 BD 中正确连接 |
 | 按键无反应 | PMOD JB 接线顺序错误；XDC 引脚映射不对 |
+| Generate Bitstream 报 `NSTD-1` | Clocking Wizard 差分时钟问题——使用更新后的 `create_bd.tcl` 或参见 Step 1 说明 |
+| Vitis 2025.2 编译报 `DEVICE_ID` 未定义 | SDT 驱动模型不再生成此宏——使用更新后的 `main.c`（含 `#ifdef` 兼容） |

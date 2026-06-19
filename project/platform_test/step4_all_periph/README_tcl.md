@@ -1,15 +1,25 @@
 # Step 4: 全外设联调 — TCL 脚本指南
 
+## 前置条件
+- Vivado + Vitis 已安装（支持 **2022.2** 或 **2025.2**）
+
 ## 操作步骤
 
 ```tcl
-# Windows Vivado TCL Console（用正斜杠，替换为你的实际路径）:
-cd D:/yj_design/project/platform_test/step4_all_periph
+cd D:/Projects/yj_design/project/platform_test/step4_all_periph
 source vivado/create_project.tcl
 source vivado/create_bd.tcl
 ```
 
-然后：Generate Bitstream → Export Hardware → Launch Vitis → 导入 `sw/main.c` → Build → Run。
+然后：Generate Bitstream → Export Hardware。
+
+### Vitis 应用
+
+#### ▸ Vitis 2022.2
+**Tools** → **Launch Vitis** → Platform Project（`.xsa`）→ Application Project → 导入 `sw/main.c` → Build → Run
+
+#### ▸ Vitis 2025.2
+**Tools** → **Launch Vitis** → New Component → Platform（`.xsa`）→ New Component → Application → 复制 `sw/main.c` → Build → **FLOW** → Run
 
 ## 硬件连接
 - **PMOD JB**: 4×4 矩阵键盘

@@ -10,6 +10,21 @@ apply_bd_automation -rule xilinx.com:bd_rule:microblaze -config { \
     debug_module {Debug Only} ecc {None} local_mem {128KB} preset {None} \
 } [get_bd_cells microblaze_0]
 
+# ---- 修正时钟输入: 差分 → 单端（Vivado 2025.2 默认创建差分输入）----
+set clk_wiz [get_bd_cells -filter {VLNV =~ *clk_wiz*}]
+set diff_intf [get_bd_intf_ports -quiet -filter {VLNV =~ *diff_clock*}]
+if {[llength $diff_intf] > 0} {
+    set diff_nets [get_bd_intf_nets -quiet -of_objects $diff_intf]
+    if {[llength $diff_nets] > 0} { delete_bd_objs $diff_nets }
+    delete_bd_objs $diff_intf
+}
+set_property -dict [list \
+    CONFIG.PRIM_SOURCE {Single_ended_clock_capable_pin} \
+    CONFIG.PRIM_IN_FREQ {100.000} \
+] $clk_wiz
+create_bd_port -dir I -type clk -freq_hz 100000000 sys_clock
+connect_bd_net [get_bd_ports sys_clock] [get_bd_pins $clk_wiz/clk_in1]
+
 # ---- 复位极性修正 ----
 set rst_cell [lindex [get_bd_cells -filter {VLNV =~ *proc_sys_reset*}] 0]
 set old_ports [get_bd_ports -quiet reset]

@@ -3,6 +3,7 @@ set project_name "step4_all_periph"
 set project_dir  "./vivado_project"
 set part         "xc7a100tcsg324-1"
 
+catch {close_project -quiet}
 if {[file exists $project_dir]} { file delete -force $project_dir }
 create_project $project_name $project_dir -part $part
 set_property target_language Verilog [current_project]

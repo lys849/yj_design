@@ -8,7 +8,11 @@
 #define KB_PERIPH_BASE XPAR_KB_PERIPH_0_BASEADDR
 #define KB_DATA_REG    (KB_PERIPH_BASE + 0x00)
 
+#ifdef XPAR_AXI_GPIO_0_DEVICE_ID
 #define LED_GPIO_ID    XPAR_AXI_GPIO_0_DEVICE_ID
+#else
+#define LED_GPIO_ID    XPAR_AXI_GPIO_0_BASEADDR
+#endif
 
 int main(void)
 {

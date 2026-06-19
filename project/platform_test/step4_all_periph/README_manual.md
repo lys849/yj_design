@@ -5,6 +5,7 @@
 
 ## 前置条件
 - 已完成 Step 3（理解自定义 AXI-Lite IP 工作流程）
+- Vivado + Vitis 已安装（支持 **2022.2** 或 **2025.2**）
 
 ---
 
@@ -37,6 +38,8 @@
 使用 `create_project.tcl` 中的完整 XDC（包含全部 PMOD 引脚）。
 
 ### 4. 生成 Bitstream → Export → Vitis → 导入 main.c → 运行
+
+> **Vitis 版本差异**: 2022.2 使用 Platform/Application Project，2025.2 使用 Platform/Application Component。详见 Step 1 的 `README_manual.md` 第六部分。
 
 ---
 
@@ -90,3 +93,4 @@ All tests complete!
 | 指纹传感器无响应 | JD PMOD 接线反了（TX↔RX 需要交叉）；传感器未供电 |
 | 蜂鸣器无声 | JC PMOD 接线不对；蜂鸣器模块需 3.3V 供电 |
 | C 编译报 BASEADDR 未定义 | 自定义 IP 未正确添加到 BD；重新 Export Hardware 并重建平台工程 |
+| Generate Bitstream 报 `NSTD-1` | Clocking Wizard 差分时钟问题——使用更新后的 `create_bd.tcl` 或参见 Step 1 说明 |

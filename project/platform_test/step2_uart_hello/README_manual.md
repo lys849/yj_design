@@ -5,6 +5,7 @@
 
 ## 前置条件
 - 已完成 Step 1（理解 Block Design 基本流程）
+- Vivado + Vitis 已安装（支持 **2022.2** 或 **2025.2**）
 
 ---
 
@@ -48,6 +49,8 @@ set_property IOSTANDARD LVCMOS33 [get_ports uart_rx]
 ### 5. 验证、生成、下载
 按 Step 1 的第三—七部分操作（Validate → Bitstream → Export → Vitis → Build → Run）。
 
+> **Vitis 版本差异**: 创建平台和应用工程的操作因版本不同，详见 Step 1 的 `README_manual.md` 第六部分（2022.2 用 Platform/Application Project，2025.2 用 Platform/Application Component）。
+
 ---
 
 ## 串口终端设置
@@ -55,8 +58,14 @@ set_property IOSTANDARD LVCMOS33 [get_ports uart_rx]
 下载程序后，需要打开串口终端才能看到输出：
 
 ### 方法 1: Vitis 内置终端
+
+#### ▸ Vitis 2022.2
 1. Vitis 菜单 → **Window** → **Show View** → **Terminal**
 2. 点击绿色 **+** 号 → **Connect**
+
+#### ▸ Vitis 2025.2
+1. 底部 **Terminal** 面板 → 点击 **+** → 选择 **Serial Terminal**
+2. 或使用外部串口工具（见方法 2）
 3. 参数：
    - Port: 在设备管理器中找 `COMx`（或 macOS: `/dev/tty.usbserial-xxx`）
    - Baud Rate: `115200`
@@ -90,3 +99,5 @@ Count: 2
 | 串口无输出 | 波特率不是 115200；串口端口选错；MicroUSB 未连 PROG 口 |
 | 乱码 | 波特率不匹配——确认 IP 配置和终端设置均为 115200 |
 | LED 不亮但串口正常 | XDC 中 LED 端口名与 BD 不匹配 |
+| Generate Bitstream 报 `NSTD-1` | Clocking Wizard 差分时钟问题——使用更新后的 `create_bd.tcl` 或参见 Step 1 说明 |
+| Vitis 2025.2 编译报 `DEVICE_ID` 未定义 | SDT 驱动模型不再生成此宏——使用更新后的 `main.c`（含 `#ifdef` 兼容） |

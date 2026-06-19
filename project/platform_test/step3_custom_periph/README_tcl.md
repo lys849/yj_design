@@ -1,10 +1,12 @@
 # Step 3: 自定义 AXI-Lite 外设 — TCL 脚本指南
 
+## 前置条件
+- Vivado + Vitis 已安装（支持 **2022.2** 或 **2025.2**）
+
 ## 操作步骤
 
 ```tcl
-# Windows Vivado TCL Console（用正斜杠，替换为你的实际路径）:
-cd D:/yj_design/project/platform_test/step3_custom_periph
+cd D:/Projects/yj_design/project/platform_test/step3_custom_periph
 source vivado/create_project.tcl
 source vivado/create_bd.tcl
 ```
@@ -13,7 +15,15 @@ source vivado/create_bd.tcl
 
 > **如果 `apply_bd_automation` 报错**（无法识别自定义模块的 AXI 接口），需要改为手动连接——参考 `README_manual.md` 方法二。
 
-然后：Generate Bitstream → Export Hardware → Launch Vitis → 导入 `sw/main.c` → Build → Run。
+然后：Generate Bitstream → Export Hardware。
+
+### Vitis 应用
+
+#### ▸ Vitis 2022.2
+**Tools** → **Launch Vitis** → Platform Project（`.xsa`）→ Application Project → 导入 `sw/main.c` → Build → Run
+
+#### ▸ Vitis 2025.2
+**Tools** → **Launch Vitis** → New Component → Platform（`.xsa`）→ New Component → Application → 复制 `sw/main.c` → Build → **FLOW** → Run
 
 打开串口终端（115200 baud），按矩阵键盘上的键，应看到 `Key pressed: code=X`。
 
