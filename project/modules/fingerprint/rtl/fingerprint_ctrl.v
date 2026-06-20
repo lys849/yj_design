@@ -2,6 +2,7 @@
 // Packet: Header(EF01) + Addr(4B) + PkgID(01) + Len(2B) + Instr + Params + Chksum(2B)
 // Response: Header(EF01) + Addr(4B) + PkgID(07) + Len(2B) + Confirm + Params + Chksum(2B)
 // UART: 57600 baud, 8N2
+// TX inter-byte gap: 2ms (required for reliable AS608 communication)
 `timescale 1ns / 1ps
 
 module fingerprint_ctrl #(
@@ -23,10 +24,14 @@ module fingerprint_ctrl #(
     localparam S_IDLE      = 3'd0;
     localparam S_BUILD     = 3'd1;
     localparam S_SEND      = 3'd2;
-    localparam S_WAIT_RESP = 3'd3;
-    localparam S_READ_RESP = 3'd4;
-    localparam S_PARSE     = 3'd5;
-    localparam S_DONE      = 3'd6;
+    localparam S_BYTE_GAP  = 3'd3;
+    localparam S_WAIT_RESP = 3'd4;
+    localparam S_READ_RESP = 3'd5;
+    localparam S_PARSE     = 3'd6;
+    localparam S_DONE      = 3'd7;
+
+    localparam [31:0] TIMEOUT_MAX = CLK_FREQ * 8;      // 8 seconds
+    localparam [17:0] BYTE_GAP    = CLK_FREQ / 500;    // 2ms
 
     reg  [7:0]  tx_data;
     reg         tx_start;
@@ -54,8 +59,8 @@ module fingerprint_ctrl #(
     reg [5:0]  resp_total;
 
     reg [2:0]  state;
-    reg [23:0] timeout_cnt;
-    localparam TIMEOUT_MAX = CLK_FREQ / 5; // 200ms
+    reg [31:0] timeout_cnt;
+    reg [17:0] gap_cnt;
 
     reg [7:0]  cur_opcode;
     reg [15:0] cur_param;
@@ -74,7 +79,8 @@ module fingerprint_ctrl #(
             pkt_len     <= 5'd0;
             rsp_cnt     <= 6'd0;
             resp_total  <= 6'd0;
-            timeout_cnt <= 24'd0;
+            timeout_cnt <= 32'd0;
+            gap_cnt     <= 18'd0;
             cur_opcode  <= 8'd0;
             cur_param   <= 16'd0;
             chksum      <= 16'd0;
@@ -88,7 +94,7 @@ module fingerprint_ctrl #(
                     status      <= 8'd0;
                     rsp_cnt     <= 6'd0;
                     resp_total  <= 6'd0;
-                    timeout_cnt <= 24'd0;
+                    timeout_cnt <= 32'd0;
                     if (cmd_start) begin
                         cur_opcode <= cmd_opcode;
                         cur_param  <= cmd_param;
@@ -192,22 +198,33 @@ module fingerprint_ctrl #(
                                 tx_data <= pkt[byte_idx];
                             tx_start <= 1'b1;
                             byte_idx <= byte_idx + 5'd1;
+                            gap_cnt  <= 18'd0;
+                            state    <= S_BYTE_GAP;
                         end else begin
                             state       <= S_WAIT_RESP;
                             rsp_cnt     <= 6'd0;
                             resp_total  <= 6'd0;
-                            timeout_cnt <= 24'd0;
+                            timeout_cnt <= 32'd0;
                         end
                     end
                 end
 
+                S_BYTE_GAP: begin
+                    if (gap_cnt >= BYTE_GAP) begin
+                        gap_cnt <= 18'd0;
+                        state   <= S_SEND;
+                    end else begin
+                        gap_cnt <= gap_cnt + 18'd1;
+                    end
+                end
+
                 S_WAIT_RESP: begin
-                    timeout_cnt <= timeout_cnt + 24'd1;
+                    timeout_cnt <= timeout_cnt + 32'd1;
                     if (rx_valid) begin
                         resp_buf[0] <= rx_data;
                         rsp_cnt     <= 6'd1;
                         state       <= S_READ_RESP;
-                        timeout_cnt <= 24'd0;
+                        timeout_cnt <= 32'd0;
                     end else if (timeout_cnt >= TIMEOUT_MAX) begin
                         status   <= 8'd3;
                         cmd_done <= 1'b1;
@@ -216,12 +233,12 @@ module fingerprint_ctrl #(
                 end
 
                 S_READ_RESP: begin
-                    timeout_cnt <= timeout_cnt + 24'd1;
+                    timeout_cnt <= timeout_cnt + 32'd1;
                     if (rx_valid) begin
                         if (rsp_cnt < 6'd32)
                             resp_buf[rsp_cnt] <= rx_data;
                         rsp_cnt     <= rsp_cnt + 6'd1;
-                        timeout_cnt <= 24'd0;
+                        timeout_cnt <= 32'd0;
 
                         if (rsp_cnt == 6'd8)
                             resp_total <= 6'd9 + {1'b0, rx_data[4:0]};
