@@ -12,27 +12,53 @@ module fp_payment_periph #(
     parameter C_S_AXI_DATA_WIDTH = 32,
     parameter C_S_AXI_ADDR_WIDTH = 5
 ) (
+    (* X_INTERFACE_PARAMETER = "ASSOCIATED_BUSIF S_AXI, ASSOCIATED_RESET S_AXI_ARESETN, FREQ_HZ 100000000" *)
+    (* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 S_AXI_ACLK CLK" *)
     input  wire        S_AXI_ACLK,
+    (* X_INTERFACE_PARAMETER = "POLARITY ACTIVE_LOW" *)
+    (* X_INTERFACE_INFO = "xilinx.com:signal:reset:1.0 S_AXI_ARESETN RST" *)
     input  wire        S_AXI_ARESETN,
-    // AXI-Lite interface
+
+    (* X_INTERFACE_PARAMETER = "PROTOCOL AXI4LITE, DATA_WIDTH 32, ADDR_WIDTH 5" *)
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI AWADDR" *)
     input  wire [C_S_AXI_ADDR_WIDTH-1:0]     S_AXI_AWADDR,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI AWPROT" *)
+    input  wire [2:0]  S_AXI_AWPROT,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI AWVALID" *)
     input  wire        S_AXI_AWVALID,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI AWREADY" *)
     output reg         S_AXI_AWREADY,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI WDATA" *)
     input  wire [C_S_AXI_DATA_WIDTH-1:0]     S_AXI_WDATA,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI WSTRB" *)
     input  wire [(C_S_AXI_DATA_WIDTH/8)-1:0] S_AXI_WSTRB,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI WVALID" *)
     input  wire        S_AXI_WVALID,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI WREADY" *)
     output reg         S_AXI_WREADY,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI BRESP" *)
     output reg  [1:0]  S_AXI_BRESP,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI BVALID" *)
     output reg         S_AXI_BVALID,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI BREADY" *)
     input  wire        S_AXI_BREADY,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI ARADDR" *)
     input  wire [C_S_AXI_ADDR_WIDTH-1:0]     S_AXI_ARADDR,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI ARPROT" *)
+    input  wire [2:0]  S_AXI_ARPROT,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI ARVALID" *)
     input  wire        S_AXI_ARVALID,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI ARREADY" *)
     output reg         S_AXI_ARREADY,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI RDATA" *)
     output reg  [C_S_AXI_DATA_WIDTH-1:0]     S_AXI_RDATA,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI RRESP" *)
     output reg  [1:0]  S_AXI_RRESP,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI RVALID" *)
     output reg         S_AXI_RVALID,
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI RREADY" *)
     input  wire        S_AXI_RREADY,
-    // Peripheral IO
+
     output wire [3:0]  kb_row,
     input  wire [3:0]  kb_col,
     output wire        fp_sensor_tx,

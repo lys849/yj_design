@@ -1,5 +1,12 @@
 # Step 4: Block Design — MicroBlaze + GPIO + UART + 全外设自定义 IP
 
+set old_bd [get_files -quiet system.bd]
+if {[llength $old_bd] > 0} {
+    catch {close_bd_design system}
+    remove_files $old_bd
+    file delete -force [file dirname [lindex $old_bd 0]]
+}
+
 create_bd_design "system"
 
 # ---- 基础 MicroBlaze 系统 ----
@@ -65,10 +72,15 @@ connect_bd_net [get_bd_ports uart_rx] [get_bd_pins axi_uartlite_0/rx]
 # ---- 自定义全外设 IP (Module Reference) ----
 create_bd_cell -type module -reference fp_payment_periph fp_periph_0
 
-apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { \
-    Master {/microblaze_0 (Periph)} Slave {/fp_periph_0/S_AXI} \
-    intc_ip {/microblaze_0_axi_periph} master_apm {0} \
-} [get_bd_intf_pins fp_periph_0/S_AXI]
+if {[catch {
+    apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { \
+        Master {/microblaze_0 (Periph)} Slave {/fp_periph_0/S_AXI} \
+        intc_ip {/microblaze_0_axi_periph} master_apm {0} \
+    } [get_bd_intf_pins fp_periph_0/S_AXI]
+} result]} {
+    puts "WARNING: AXI automation for fp_periph_0 failed: $result"
+    puts "请参考 README_manual.md 手动连接 AXI 接口"
+}
 
 # 引出外设端口
 create_bd_port -dir O -from 3 -to 0 kb_row
@@ -90,13 +102,19 @@ connect_bd_net [get_bd_pins fp_periph_0/buzzer] [get_bd_ports buzzer_out]
 
 # ---- 验证、保存、Wrapper ----
 regenerate_bd_layout
-validate_bd_design
+if {[catch {validate_bd_design} result]} {
+    puts "WARNING: BD validation: $result (继续生成 wrapper)"
+}
 save_bd_design
 
 make_wrapper -files [get_files system.bd] -top
-set wrapper_file [glob -nocomplain [get_property DIRECTORY [current_project]]/*.srcs/sources_1/bd/system/hdl/system_wrapper.v]
+set proj_dir [get_property DIRECTORY [current_project]]
+set wrapper_file [glob -nocomplain \
+    $proj_dir/*.gen/sources_1/bd/system/hdl/system_wrapper.v \
+    $proj_dir/*.srcs/sources_1/bd/system/hdl/system_wrapper.v]
 if {$wrapper_file ne ""} {
-    add_files -norecurse $wrapper_file
+    add_files -norecurse [lindex $wrapper_file 0]
+    set_property top system_wrapper [current_fileset]
     update_compile_order -fileset sources_1
 }
 

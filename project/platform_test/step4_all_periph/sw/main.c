@@ -1,6 +1,7 @@
 // Step 4: 全外设测试 — 逐一验证键盘、指纹、蜂鸣器、LED
 #include "xil_printf.h"
 #include "xil_io.h"
+#include "xil_types.h"
 #include "xparameters.h"
 #include "sleep.h"
 

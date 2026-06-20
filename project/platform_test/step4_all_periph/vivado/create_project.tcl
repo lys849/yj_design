@@ -10,7 +10,7 @@ set_property target_language Verilog [current_project]
 
 # 添加所有 RTL 源文件
 set script_dir [file dirname [info script]]
-set base [file normalize [file join $script_dir ../..]]
+set base [file normalize [file join $script_dir ../../..]]
 add_files [list \
     [file join $script_dir ../ip/fp_payment_periph.v] \
     [file join $base modules/uart/rtl/uart_tx.v] \
@@ -75,4 +75,5 @@ puts $fp $xdc_content
 close $fp
 add_files -fileset constrs_1 $xdc_file
 
-puts "工程创建完成 → source vivado/create_bd.tcl"
+puts "工程创建完成，自动进入 Block Design..."
+source [file join $script_dir create_bd.tcl]
