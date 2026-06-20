@@ -93,6 +93,8 @@ conda run -n llm python3 generate_report.py
 - `iverilog` 不支持 unnamed block 内的 `integer` 声明（Verilog-2001 限制），需将 `integer` 声明放在模块级别
 - AS608 指纹模块 UART 要求 **2 位停止位（8N2）**，`uart_tx`/`uart_rx` 通过 `STOP_BITS` 参数控制（默认 1），`fingerprint_ctrl` 内部已设为 2
 - AS608 数据包格式：`Header(EF01) + Addr(4B) + PkgID(01) + Len(2B) + Instr + Params + Chksum(2B)`，校验和从包标识累加到参数末尾
+- AS608 通信需要 **2ms 字节间延迟**（`fingerprint_ctrl.v` 的 `S_BYTE_GAP` 状态），back-to-back 发送会导致传感器不响应
+- AS608 上电初始化需要 **≥3 秒**，首条命令前必须有足够延迟；响应超时设为 **8 秒**（PS_Enroll 等需要用户操作的命令耗时长）
 - `.doc` 二进制文件不可直接 `cat`/`grep`，用 `textutil` 转换
 - BRAM 初始化必须用 `initial` 块（非 `always` 块的 for 循环），否则 Vivado 无法推断 BRAM 会消耗大量 LUT
 - VGA 字符缓冲用真双端口 BRAM 模式解决跨时钟域（写端口 CPU 时钟，读端口像素时钟）
