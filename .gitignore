@@ -1,6 +1,9 @@
 # macOS
 .DS_Store
 
+# IDE / AI tool local config
+.claude/
+
 # Binary docs (not tracked)
 *.pdf
 *.pptx
