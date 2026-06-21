@@ -100,7 +100,7 @@ project/
 
 | 文件 | 作用 |
 |------|------|
-| `rtl/fingerprint_ctrl.v` | AS608 协议控制器：按指令动态构建命令包（12-17 字节），解析可变长度应答。内部例化 uart_tx/rx（STOP_BITS=2） |
+| `rtl/fingerprint_ctrl.v` | AS608 协议控制器：按指令动态构建命令包（12-17 字节），解析可变长度应答。内部例化 uart_tx/rx（默认 57600 8N1；厂家资料标称 8N2，可切 `STOP_BITS=2` 对照） |
 | `sim/fingerprint_tb.v` | 发送 GetImage / Search / StoreChar 三种命令，验证包构建和状态机 |
 | `board_test/fp_test_top.v` | 上电后发送 VfyPwd 命令，LED 显示传感器是否应答 |
 | `board_test/fp_test.xdc` | 时钟 + 复位 + PMOD JD（AS608 UART）+ LED |

@@ -1,5 +1,5 @@
 // UART Transmitter — configurable baud rate & stop bits
-// Default 8N1, AS608 fingerprint sensor uses 8N2 (STOP_BITS=2)
+// Default 8N1; STOP_BITS remains configurable for other UART devices.
 `timescale 1ns / 1ps
 
 module uart_tx #(

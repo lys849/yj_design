@@ -14,6 +14,69 @@
 #define REG_VGA_CHAR (PERIPH_BASE + 0x10)
 #define REG_LED      (PERIPH_BASE + 0x14)
 
+static const char *fp_status_name(u32 status)
+{
+    switch (status) {
+    case 0: return "idle";
+    case 1: return "busy";
+    case 2: return "done";
+    case 3: return "error";
+    default: return "unknown";
+    }
+}
+
+static int fp_run_command(const char *name, u8 opcode, u16 param, int timeout_ms)
+{
+    xil_printf("[FINGERPRINT] %s opcode=0x%02x param=0x%04x\r\n",
+               name, opcode, param);
+    Xil_Out32(REG_FP_CMD, (1u << 31) | ((u32)opcode << 16) | param);
+
+    u32 readback = Xil_In32(REG_FP_CMD);
+    xil_printf("  CMD readback=0x%08lx\r\n", readback);
+
+    usleep(1000);
+    u32 first_resp = Xil_In32(REG_FP_RESP);
+    xil_printf("  RESP after 1ms=0x%08lx (status=%lu/%s response=0x%04lx)\r\n",
+               first_resp, (first_resp >> 24) & 0xFF,
+               fp_status_name((first_resp >> 24) & 0xFF),
+               first_resp & 0xFFFF);
+
+    int timeout = timeout_ms / 10;
+    int print_cnt = 0;
+    u32 final_resp = first_resp;
+    while (timeout-- > 0) {
+        u32 resp = Xil_In32(REG_FP_RESP);
+        u32 status = (resp >> 24) & 0xFF;
+        final_resp = resp;
+
+        if (print_cnt < 5 || (timeout % 200 == 0)) {
+            xil_printf("  poll resp=0x%08lx st=%lu/%s response=0x%04lx t=%d\r\n",
+                       resp, status, fp_status_name(status),
+                       resp & 0xFFFF, timeout);
+            print_cnt++;
+        }
+
+        if (status == 2) {
+            xil_printf("  %s OK: final=0x%08lx response=0x%04lx\r\n",
+                       name, resp, resp & 0xFFFF);
+            return 1;
+        }
+        if (status == 3) {
+            xil_printf("  %s ERROR: final=0x%08lx code=0x%02lx\r\n",
+                       name, resp, resp & 0xFF);
+            return 0;
+        }
+
+        usleep(10000);
+    }
+
+    u32 final_status = (final_resp >> 24) & 0xFF;
+    xil_printf("  %s TIMEOUT: final=0x%08lx status=%lu/%s response=0x%04lx\r\n",
+               name, final_resp, final_status, fp_status_name(final_status),
+               final_resp & 0xFFFF);
+    return 0;
+}
+
 void test_led(void)
 {
     xil_printf("[LED] Running LED test...\r\n");
@@ -72,45 +135,13 @@ void test_fingerprint(void)
             usleep(500000);
         }
 
-        xil_printf("[FINGERPRINT] Sending VfyPwd (default password 0x00000000)...\r\n");
-        Xil_Out32(REG_FP_CMD, (1u << 31) | (0x13 << 16) | 0x0000);
-
-        u32 readback = Xil_In32(REG_FP_CMD);
-        xil_printf("  CMD readback=0x%08lx\r\n", readback);
-        usleep(1000);
-        u32 resp0 = Xil_In32(REG_FP_RESP);
-        xil_printf("  RESP after 1ms=0x%08lx (status=%lu)\r\n", resp0, (resp0 >> 24) & 0xFF);
-
-        int timeout = 1000;
-        int got_result = 0;
-        int print_cnt = 0;
-        while (timeout-- > 0) {
-            u32 resp = Xil_In32(REG_FP_RESP);
-            u32 status = (resp >> 24) & 0xFF;
-            if (print_cnt < 5 || (timeout % 200 == 0)) {
-                xil_printf("  poll resp=0x%08lx st=%lu t=%d\r\n", resp, status, timeout);
-                print_cnt++;
-            }
-            if (status == 2) {
-                xil_printf("  Sensor responded: OK (password verified)\r\n");
-                got_result = 1;
-                break;
-            } else if (status == 3) {
-                xil_printf("  Sensor responded: ERROR (code=0x%02lx)\r\n", resp & 0xFF);
-                got_result = 1;
-                break;
-            }
-            usleep(10000);
-        }
-
-        if (!got_result) {
-            xil_printf("  Software timeout - no response in 10s\r\n");
-        }
-
-        u32 final_resp = Xil_In32(REG_FP_RESP);
-        u32 final_status = (final_resp >> 24) & 0xFF;
-        if (final_status == 2) {
-            xil_printf("[FINGERPRINT] DONE (success)\r\n\r\n");
+        if (fp_run_command("VfyPwd default password", 0x13, 0x0000, 10000)) {
+            xil_printf("  Sensor responded: OK (password verified)\r\n");
+            usleep(100000);
+            fp_run_command("ReadSysPara", 0x0F, 0x0000, 10000);
+            usleep(100000);
+            fp_run_command("ValidTmplNum", 0x1D, 0x0000, 10000);
+            xil_printf("[FINGERPRINT] DONE (link success)\r\n\r\n");
             return;
         }
     }

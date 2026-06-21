@@ -15,7 +15,7 @@
 ```
 project/                              # 主开发目录（MicroBlaze 路线）
   modules/                            # 5 个独立外设模块，各含 rtl/ + sim/ + board_test/
-    uart/                             # UART TX/RX（STOP_BITS 可配置，默认 1，指纹用 2）
+    uart/                             # UART TX/RX（STOP_BITS 可配置，默认 1）
     keyboard/                         # 4×4 矩阵键盘（µs 级行驻留 + 输入同步 + 消抖）
     vga/                              # VGA 时序控制 + 文字渲染（BRAM 字符缓冲 + font_rom）
     fingerprint/                      # AS608 指纹控制器（完整协议包构建 + 应答解析）
@@ -38,7 +38,7 @@ demo/                                 # 旧原型代码（参考用，有已知�
 - 每个模块含 `board_test/` 可独立烧板验证（顶层 wrapper + 独立 XDC）
 
 ### 模块依赖关系
-- `fingerprint_ctrl.v` 内部例化 `uart_tx`/`uart_rx`（STOP_BITS=2）
+- `fingerprint_ctrl.v` 内部例化 `uart_tx`/`uart_rx`（工程默认按已上板通过 demo 使用 8N1；厂家资料标称 8N2，可切 STOP_BITS=2 对照）
 - `vga_text.v` 内含 `font_rom` 子模块，字符缓冲 2400B 用 `initial` 初始化以推断 BRAM
 - 板级测试中 VGA 需 25MHz 时钟，`vga_test_top.v` 使用 `MMCME2_BASE` 原语生成
 
@@ -91,7 +91,7 @@ conda run -n llm python3 generate_report.py
 - `iverilog` 不支持 Verilog 表达式结果的部分选择（如 `(a + b)[6:0]`），需先计算到中间变量
 - `iverilog` 要求 `reg` 和 `wire` 在使用前声明；模块输入端口连接的 reg 必须在实例化前声明
 - `iverilog` 不支持 unnamed block 内的 `integer` 声明（Verilog-2001 限制），需将 `integer` 声明放在模块级别
-- AS608 指纹模块 UART 要求 **2 位停止位（8N2）**，`uart_tx`/`uart_rx` 通过 `STOP_BITS` 参数控制（默认 1），`fingerprint_ctrl` 内部已设为 2
+- AS608 指纹模块 UART：厂家资料/总结文档标称 **57600 8N2**，但当前 Nexys4 DDR + AS608 实测 demo 使用 **57600 8N1** 成功；`project/` 默认按 8N1 集成，若 step4/system 仍超时，可把 `fingerprint_ctrl.v` 内 TX/RX 的 `STOP_BITS` 临时改为 2 重新综合做 A/B 对照
 - AS608 数据包格式：`Header(EF01) + Addr(4B) + PkgID(01) + Len(2B) + Instr + Params + Chksum(2B)`，校验和从包标识累加到参数末尾
 - AS608 通信需要 **2ms 字节间延迟**（`fingerprint_ctrl.v` 的 `S_BYTE_GAP` 状态），back-to-back 发送会导致传感器不响应
 - AS608 上电初始化需要 **≥3 秒**，首条命令前必须有足够延迟；响应超时设为 **8 秒**（PS_Enroll 等需要用户操作的命令耗时长）

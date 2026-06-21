@@ -1,7 +1,10 @@
 // Fingerprint Sensor Controller (AS608 protocol per AS60x Communication Manual)
 // Packet: Header(EF01) + Addr(4B) + PkgID(01) + Len(2B) + Instr + Params + Chksum(2B)
 // Response: Header(EF01) + Addr(4B) + PkgID(07) + Len(2B) + Confirm + Params + Chksum(2B)
-// UART: 57600 baud, 8N2
+// UART: 57600 baud, 8N1 by default.
+// Note: AS60x documentation lists 8N2, but the collaborator's Nexys4 DDR
+// AS608 demo communicates successfully with 8N1. If a different sensor batch
+// times out, change both STOP_BITS parameters below to 2 for an A/B check.
 // TX inter-byte gap: 2ms (required for reliable AS608 communication)
 `timescale 1ns / 1ps
 
@@ -39,13 +42,13 @@ module fingerprint_ctrl #(
     wire [7:0]  rx_data;
     wire        rx_valid;
 
-    uart_tx #(.CLK_FREQ(CLK_FREQ), .BAUD_RATE(BAUD_RATE), .STOP_BITS(2)) u_tx (
+    uart_tx #(.CLK_FREQ(CLK_FREQ), .BAUD_RATE(BAUD_RATE), .STOP_BITS(1)) u_tx (
         .clk(clk), .rst_n(rst_n),
         .tx_data(tx_data), .tx_start(tx_start),
         .tx(sensor_tx), .tx_busy(tx_busy), .tx_done(tx_done_w)
     );
 
-    uart_rx #(.CLK_FREQ(CLK_FREQ), .BAUD_RATE(BAUD_RATE), .STOP_BITS(2)) u_rx (
+    uart_rx #(.CLK_FREQ(CLK_FREQ), .BAUD_RATE(BAUD_RATE), .STOP_BITS(1)) u_rx (
         .clk(clk), .rst_n(rst_n),
         .rx(sensor_rx), .rx_data(rx_data), .rx_valid(rx_valid)
     );

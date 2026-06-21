@@ -70,7 +70,8 @@ Flow Navigator → **Generate Bitstream** → 等待 3-5 分钟
 
 ## AS608 通信参数
 - 波特率：57600 bps
-- 数据格式：8 数据位，2 停止位，无校验（8N2）
+- 数据格式：工程默认 8 数据位，1 停止位，无校验（8N1）
+- 说明：厂家资料/总结文档标称 57600 8N2，但当前 Nexys4 DDR + AS608 实测可用 8N1；若仍超时，可将 `fingerprint_ctrl.v` 中 TX/RX 的 `STOP_BITS` 改为 2 后重新综合做对照
 - 默认设备地址：0xFFFFFFFF
 - 默认口令：0x00000000
 

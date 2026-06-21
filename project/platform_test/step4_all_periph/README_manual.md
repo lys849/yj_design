@@ -68,9 +68,12 @@
   Key pressed: code=10
 [KEYBOARD] DONE
 
-[FINGERPRINT] Sending VfyPwd...
+[FINGERPRINT] VfyPwd default password opcode=0x13 param=0x0000
+  VfyPwd default password OK: ...
   Sensor responded: OK (password verified)
-[FINGERPRINT] DONE
+[FINGERPRINT] ReadSysPara opcode=0x0f param=0x0000
+[FINGERPRINT] ValidTmplNum opcode=0x1d param=0x0000
+[FINGERPRINT] DONE (link success)
 
 All tests complete!
 ```
@@ -94,3 +97,5 @@ All tests complete!
 | 蜂鸣器无声 | JC PMOD 接线不对；蜂鸣器模块需 3.3V 供电 |
 | C 编译报 BASEADDR 未定义 | 自定义 IP 未正确添加到 BD；重新 Export Hardware 并重建平台工程 |
 | Generate Bitstream 报 `NSTD-1` | Clocking Wizard 差分时钟问题——使用更新后的 `create_bd.tcl` 或参见 Step 1 说明 |
+
+> AS608 UART 说明：厂家资料/总结文档标称 57600 8N2，但当前合作方同款硬件纯 Verilog demo 已用 57600 8N1 跑通，因此 step4 默认按 8N1 集成。若 `VfyPwd` 仍持续 timeout，可临时将 `fingerprint_ctrl.v` 中 TX/RX 的 `STOP_BITS` 改为 2 重新综合做 A/B 对照。

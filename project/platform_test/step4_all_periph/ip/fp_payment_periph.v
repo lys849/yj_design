@@ -88,6 +88,8 @@ module fp_payment_periph #(
     reg  [7:0]  fp_opcode;
     reg  [15:0] fp_param;
     reg         fp_start;
+    reg         fp_start_d;
+    wire        fp_start_pulse = fp_start & ~fp_start_d;
     wire [15:0] fp_response;
     wire [7:0]  fp_status;
     wire        fp_done;
@@ -110,7 +112,6 @@ module fp_payment_periph #(
     // ---- 内部寄存器 ----
     reg [3:0]  kb_latched_code;
     reg        kb_latched_valid;
-    reg        fp_start_d;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -127,7 +128,6 @@ module fp_payment_periph #(
     end
 
     // 指纹启动脉冲
-    wire fp_start_pulse = fp_start & ~fp_start_d;
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) fp_start_d <= 1'b0;
         else        fp_start_d <= fp_start;
