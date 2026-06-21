@@ -62,25 +62,59 @@ void test_keyboard(void)
 
 void test_fingerprint(void)
 {
-    xil_printf("[FINGERPRINT] Sending VfyPwd (default password 0x00000000)...\r\n");
-    Xil_Out32(REG_FP_CMD, (1u << 31) | (0x13 << 16) | 0x0000);
+    xil_printf("[FINGERPRINT] Waiting 3s for AS608 boot...\r\n");
+    sleep(3);
 
-    int timeout = 500;
-    while (timeout-- > 0) {
-        u32 resp = Xil_In32(REG_FP_RESP);
-        u32 status = (resp >> 24) & 0xFF;
-        if (status == 2) {
-            xil_printf("  Sensor responded: OK (password verified)\r\n");
-            break;
-        } else if (status == 3) {
-            xil_printf("  Sensor responded: ERROR (code=0x%02lx)\r\n", resp & 0xFF);
-            break;
+    int attempt;
+    for (attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) {
+            xil_printf("  Retry %d/3...\r\n", attempt + 1);
+            usleep(500000);
         }
-        usleep(10000);
+
+        xil_printf("[FINGERPRINT] Sending VfyPwd (default password 0x00000000)...\r\n");
+        Xil_Out32(REG_FP_CMD, (1u << 31) | (0x13 << 16) | 0x0000);
+
+        u32 readback = Xil_In32(REG_FP_CMD);
+        xil_printf("  CMD readback=0x%08lx\r\n", readback);
+        usleep(1000);
+        u32 resp0 = Xil_In32(REG_FP_RESP);
+        xil_printf("  RESP after 1ms=0x%08lx (status=%lu)\r\n", resp0, (resp0 >> 24) & 0xFF);
+
+        int timeout = 1000;
+        int got_result = 0;
+        int print_cnt = 0;
+        while (timeout-- > 0) {
+            u32 resp = Xil_In32(REG_FP_RESP);
+            u32 status = (resp >> 24) & 0xFF;
+            if (print_cnt < 5 || (timeout % 200 == 0)) {
+                xil_printf("  poll resp=0x%08lx st=%lu t=%d\r\n", resp, status, timeout);
+                print_cnt++;
+            }
+            if (status == 2) {
+                xil_printf("  Sensor responded: OK (password verified)\r\n");
+                got_result = 1;
+                break;
+            } else if (status == 3) {
+                xil_printf("  Sensor responded: ERROR (code=0x%02lx)\r\n", resp & 0xFF);
+                got_result = 1;
+                break;
+            }
+            usleep(10000);
+        }
+
+        if (!got_result) {
+            xil_printf("  Software timeout - no response in 10s\r\n");
+        }
+
+        u32 final_resp = Xil_In32(REG_FP_RESP);
+        u32 final_status = (final_resp >> 24) & 0xFF;
+        if (final_status == 2) {
+            xil_printf("[FINGERPRINT] DONE (success)\r\n\r\n");
+            return;
+        }
     }
-    if (timeout <= 0) {
-        xil_printf("  Sensor timeout - check wiring on PMOD JD\r\n");
-    }
+    xil_printf("  All 3 attempts failed - check wiring on PMOD JD\r\n");
     xil_printf("[FINGERPRINT] DONE\r\n\r\n");
 }
 

@@ -95,7 +95,7 @@ module fp_payment_periph #(
         .clk(clk), .rst_n(rst_n),
         .sensor_tx(fp_sensor_tx), .sensor_rx(fp_sensor_rx),
         .cmd_opcode(fp_opcode), .cmd_param(fp_param),
-        .cmd_start(fp_start), .response(fp_response),
+        .cmd_start(fp_start_pulse), .response(fp_response),
         .status(fp_status), .cmd_done(fp_done)
     );
 
@@ -133,24 +133,7 @@ module fp_payment_periph #(
         else        fp_start_d <= fp_start;
     end
 
-    // 蜂鸣器自动清零
-    always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            beep_short <= 1'b0;
-            beep_ok    <= 1'b0;
-            beep_fail  <= 1'b0;
-        end else begin
-            if (beep_short) beep_short <= 1'b0;
-            if (beep_ok)    beep_ok    <= 1'b0;
-            if (beep_fail)  beep_fail  <= 1'b0;
-        end
-    end
 
-    // VGA 写使能脉冲
-    always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) vga_char_we <= 1'b0;
-        else        vga_char_we <= 1'b0; // 默认不写，仅在写寄存器时脉冲
-    end
 
     // ---- AXI Write ----
     reg [C_S_AXI_ADDR_WIDTH-1:0] aw_addr;
@@ -168,7 +151,15 @@ module fp_payment_periph #(
             led           <= 4'd0;
             vga_char_addr <= 11'd0;
             vga_char_data <= 8'd0;
+            vga_char_we   <= 1'b0;
+            beep_short    <= 1'b0;
+            beep_ok       <= 1'b0;
+            beep_fail     <= 1'b0;
         end else begin
+            if (beep_short) beep_short <= 1'b0;
+            if (beep_ok)    beep_ok    <= 1'b0;
+            if (beep_fail)  beep_fail  <= 1'b0;
+            if (vga_char_we) vga_char_we <= 1'b0;
             // Handshake
             if (S_AXI_AWVALID && S_AXI_WVALID && !S_AXI_AWREADY) begin
                 S_AXI_AWREADY <= 1'b1;
@@ -206,8 +197,7 @@ module fp_payment_periph #(
                 S_AXI_BVALID <= 1'b0;
             end
 
-            // FP start 清除（保持一周期脉冲）
-            if (fp_start && !S_AXI_WDATA[31])
+            if (fp_start && !(S_AXI_AWREADY && S_AXI_WREADY && aw_addr[4:2] == 3'd0))
                 fp_start <= 1'b0;
         end
     end

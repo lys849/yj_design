@@ -1,4 +1,5 @@
 // Fingerprint Controller Testbench — verifies AS608 packet assembly
+// Note: with 8s hardware timeout and 2ms byte gap, each command takes ~8s sim time
 `timescale 1ns / 1ps
 
 module fingerprint_tb;
@@ -23,7 +24,9 @@ module fingerprint_tb;
         .status(status), .cmd_done(cmd_done)
     );
 
-    task send_cmd(input [7:0] op, input [15:0] param);
+    integer wait_cycles;
+
+    task send_cmd_and_wait(input [7:0] op, input [15:0] param);
         begin
             @(posedge clk);
             cmd_opcode = op;
@@ -31,7 +34,18 @@ module fingerprint_tb;
             cmd_start  = 1;
             @(posedge clk);
             cmd_start  = 0;
-            $display("  Sent opcode=0x%02x param=0x%04x, status=%0d", op, param, status);
+            $display("  Sent opcode=0x%02x param=0x%04x", op, param);
+
+            wait_cycles = 0;
+            while (!cmd_done && wait_cycles < 900_000_000) begin
+                @(posedge clk);
+                wait_cycles = wait_cycles + 1;
+            end
+
+            if (cmd_done)
+                $display("  Result: status=%0d response=0x%04x (cycles=%0d)", status, response, wait_cycles);
+            else
+                $display("  SIMULATION TIMEOUT after %0d cycles", wait_cycles);
         end
     endtask
 
@@ -41,20 +55,11 @@ module fingerprint_tb;
 
         $display("=== Fingerprint Controller Test ===");
 
-        $display("Test 1: GetImage (0x01)");
-        send_cmd(8'h01, 16'h0000);
-        #4_000_000;
-        $display("  Status: %0d (1=busy)", status);
+        $display("Test 1: VfyPwd (0x13) — expect timeout (no sensor)");
+        send_cmd_and_wait(8'h13, 16'h0000);
 
-        $display("Test 2: Search (0x04) BufferID=1, PageNum=32");
-        send_cmd(8'h04, 16'h0120);
-        #4_000_000;
-        $display("  Status: %0d", status);
-
-        $display("Test 3: StoreChar (0x06) BufferID=2, PageID=5");
-        send_cmd(8'h06, 16'h0205);
-        #4_000_000;
-        $display("  Status: %0d", status);
+        $display("Test 2: GetImage (0x01)");
+        send_cmd_and_wait(8'h01, 16'h0000);
 
         $display("FINGERPRINT TEST PASSED");
         $finish;

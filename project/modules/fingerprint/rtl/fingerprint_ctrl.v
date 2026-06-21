@@ -91,7 +91,6 @@ module fingerprint_ctrl #(
 
             case (state)
                 S_IDLE: begin
-                    status      <= 8'd0;
                     rsp_cnt     <= 6'd0;
                     resp_total  <= 6'd0;
                     timeout_cnt <= 32'd0;
