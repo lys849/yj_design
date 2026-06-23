@@ -3,6 +3,13 @@
 ## 测试目标
 验证 FPGA 能通过 UART 与 AS608 指纹传感器通信。上电后自动发送口令验证命令（VfyPwd），LED 显示传感器是否应答。
 
+本目录包含两个板级测试：
+
+| 顶层 | 用途 |
+|------|------|
+| `fp_test_top.v` | 最小 VfyPwd 测试，使用 `fingerprint_ctrl.v` |
+| `fp_init_verify_top.v` | 合作者纯 Verilog 初始化流程复刻版：`0x55 wake` → VfyPwd → ReadSysPara → ValidTmplNum，并通过 USB-UART 打印结果 |
+
 ## 硬件连接
 
 | 接口 | 连接 |
@@ -26,10 +33,12 @@ JD6      → VCC 3.3V（红线）
 | 文件 | 路径 |
 |------|------|
 | 测试顶层 | `modules/fingerprint/board_test/fp_test_top.v` |
+| 初始化验证顶层 | `modules/fingerprint/board_test/fp_init_verify_top.v` |
 | 指纹控制器 | `modules/fingerprint/rtl/fingerprint_ctrl.v` |
 | UART 发送器 | `modules/uart/rtl/uart_tx.v` |
 | UART 接收器 | `modules/uart/rtl/uart_rx.v` |
 | 引脚约束 | `modules/fingerprint/board_test/fp_test.xdc` |
+| 初始化验证约束 | `modules/fingerprint/board_test/fp_init_verify.xdc` |
 
 > 指纹控制器内部例化了 uart_tx 和 uart_rx，因此需要同时添加 UART 模块的源文件。
 
@@ -56,6 +65,32 @@ Flow Navigator → **Generate Bitstream** → 等待 3-5 分钟
 ## 验证方法
 
 下载完成后，等待约 **3 秒**（AS608 上电初始化），程序自动发送 VfyPwd 命令。如果失败会自动重试（最多 3 次，每次间隔 500ms）。
+
+### 合作者初始化流程复刻测试
+
+若要运行 `fp_init_verify_top.v`：
+
+1. 添加源文件：`fp_init_verify_top.v`、`modules/uart/rtl/uart_tx.v`、`modules/uart/rtl/uart_rx.v`
+2. 添加约束：`fp_init_verify.xdc`
+3. 设置顶层：`fp_init_verify_top`
+4. 打开串口终端：115200 baud, 8N1
+5. 下载 bitstream 后按 CPU_RESET
+
+预期串口输出类似：
+
+```text
+AS608 init verify
+wake 55
+VfyPwd
+ACK=0x00 CNT=0x0C LAST=0x??
+ReadSysPara
+ACK=0x00 CNT=0x1C LAST=0x??
+ValidTmplNum
+ACK=0x00 CNT=0x0E LAST=0x??
+INIT OK
+```
+
+这个测试不经过 MicroBlaze/AXI，用于确认 AS608 通信格式和时序本身是否可靠。
 
 ## 预期结果
 
