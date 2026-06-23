@@ -39,22 +39,29 @@ JD6      → VCC 3.3V（红线）
 | UART 接收器 | `modules/uart/rtl/uart_rx.v` |
 | 引脚约束 | `modules/fingerprint/board_test/fp_test.xdc` |
 | 初始化验证约束 | `modules/fingerprint/board_test/fp_init_verify.xdc` |
+| Vivado 脚本 | `modules/fingerprint/board_test/create_project.tcl` |
 
 > 指纹控制器内部例化了 uart_tx 和 uart_rx，因此需要同时添加 UART 模块的源文件。
 
 ## Vivado 操作步骤
 
 ### 1. 创建工程
-1. 打开 Vivado 2022.2
-2. **Create Project** → Project Name: `fp_board_test`
-3. Project Type: **RTL Project**
-4. **Add Sources** → 选择上述 4 个 `.v` 文件
-5. **Add Constraints** → 选择 `fp_test.xdc`
-6. **Default Part** → `xc7a100tcsg324-1`
-7. **Finish**
+打开 Vivado TCL Console：
+
+```tcl
+cd D:/yj_design/project/modules/fingerprint/board_test
+source create_project.tcl
+```
+
+默认创建 `fp_init_verify_top` 黄金初始化验证工程。若要创建 `fp_test_top` 最小控制器测试工程：
+
+```tcl
+set ::env(FP_TOP) fp_test_top
+source create_project.tcl
+```
 
 ### 2. 设置顶层模块
-Sources 面板 → 右键 `fp_test_top` → **Set as Top**
+脚本会自动设置顶层模块。
 
 ### 3. 生成 Bitstream
 Flow Navigator → **Generate Bitstream** → 等待 3-5 分钟
@@ -70,11 +77,19 @@ Flow Navigator → **Generate Bitstream** → 等待 3-5 分钟
 
 若要运行 `fp_init_verify_top.v`：
 
-1. 添加源文件：`fp_init_verify_top.v`、`modules/uart/rtl/uart_tx.v`、`modules/uart/rtl/uart_rx.v`
-2. 添加约束：`fp_init_verify.xdc`
-3. 设置顶层：`fp_init_verify_top`
-4. 打开串口终端：115200 baud, 8N1
-5. 下载 bitstream 后按 CPU_RESET
+```tcl
+cd D:/yj_design/project/modules/fingerprint/board_test
+source create_project.tcl
+```
+
+脚本默认创建黄金初始化验证工程，顶层为 `fp_init_verify_top`，约束为 `fp_init_verify.xdc`。打开串口终端：115200 baud, 8N1；下载 bitstream 后按 CPU_RESET。
+
+若要改跑基于 `fingerprint_ctrl.v` 的最小 VfyPwd 测试：
+
+```tcl
+set ::env(FP_TOP) fp_test_top
+source create_project.tcl
+```
 
 预期串口输出类似：
 
@@ -82,15 +97,15 @@ Flow Navigator → **Generate Bitstream** → 等待 3-5 分钟
 AS608 init verify
 wake 55
 VfyPwd
-ACK=0x00 CNT=0x0C LAST=0x??
+ACK=0x00 CNT=0x0C LAST=0x0A
 ReadSysPara
-ACK=0x00 CNT=0x1C LAST=0x??
+ACK=0x00 CNT=0x1C LAST=0x4E
 ValidTmplNum
-ACK=0x00 CNT=0x0E LAST=0x??
+ACK=0x00 CNT=0x0E LAST=0x4B
 INIT OK
 ```
 
-这个测试不经过 MicroBlaze/AXI，用于确认 AS608 通信格式和时序本身是否可靠。
+这个测试不经过 MicroBlaze/AXI，用于确认 AS608 通信格式和时序本身是否可靠。`fingerprint_ctrl.v` 已迁入同样的首次命令初始化策略：3s boot guard → `0x55` wake → 1s guard → AS608 命令包。
 
 ## 预期结果
 
@@ -107,6 +122,7 @@ INIT OK
 - 波特率：57600 bps
 - 数据格式：工程默认 8 数据位，1 停止位，无校验（8N1）
 - 说明：厂家资料/总结文档标称 57600 8N2，但当前 Nexys4 DDR + AS608 实测可用 8N1；若仍超时，可将 `fingerprint_ctrl.v` 中 TX/RX 的 `STOP_BITS` 改为 2 后重新综合做对照
+- 初始化：通用控制器首次命令前自动执行 3s boot guard + `0x55` wake + 1s guard；C/AXI 层无需额外发送 wake
 - 默认设备地址：0xFFFFFFFF
 - 默认口令：0x00000000
 

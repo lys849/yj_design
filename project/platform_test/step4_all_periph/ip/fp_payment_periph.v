@@ -7,6 +7,8 @@
 //   0x10 VGA_CHAR [W]  {we[31], 8'b0, addr[22:12], 4'b0, data[7:0]}
 //   0x14 LED      [W]  {28'b0, led[3:0]}
 //   0x18 FP_DBG   [R]  {4'b0, rx_seen, state[2:0], tx_idx[4:0], rx_cnt[5:0], pkt_len[4:0], last_rx[7:0]}
+//                       state: 0=idle, 1=boot_wait, 2=wake/guard, 3=build,
+//                              4=send/tx_gap, 5=wait_resp, 6=read/parse, 7=done
 `timescale 1ns / 1ps
 
 module fp_payment_periph #(

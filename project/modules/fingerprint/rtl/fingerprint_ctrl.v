@@ -5,6 +5,8 @@
 // Note: AS60x documentation lists 8N2, but the collaborator's Nexys4 DDR
 // AS608 demo communicates successfully with 8N1. If a different sensor batch
 // times out, change both STOP_BITS parameters below to 2 for an A/B check.
+// Init sequence mirrors the verified board test: wait 3s, send wake byte 0x55,
+// wait 1s, then send the first command packet.
 // TX inter-byte gap: 2ms (required for reliable AS608 communication)
 `timescale 1ns / 1ps
 
@@ -25,15 +27,22 @@ module fingerprint_ctrl #(
     output wire [31:0]  debug_info
 );
 
-    localparam S_IDLE      = 3'd0;
-    localparam S_BUILD     = 3'd1;
-    localparam S_SEND      = 3'd2;
-    localparam S_BYTE_GAP  = 3'd3;
-    localparam S_WAIT_RESP = 3'd4;
-    localparam S_READ_RESP = 3'd5;
-    localparam S_PARSE     = 3'd6;
-    localparam S_DONE      = 3'd7;
+    localparam S_BOOT_WAIT    = 4'd0;
+    localparam S_IDLE         = 4'd1;
+    localparam S_WAKE_SEND    = 4'd2;
+    localparam S_WAKE_WAIT_TX = 4'd3;
+    localparam S_WAKE_GUARD   = 4'd4;
+    localparam S_BUILD        = 4'd5;
+    localparam S_SEND         = 4'd6;
+    localparam S_WAIT_TX_DONE = 4'd7;
+    localparam S_BYTE_GAP     = 4'd8;
+    localparam S_WAIT_RESP    = 4'd9;
+    localparam S_READ_RESP    = 4'd10;
+    localparam S_PARSE        = 4'd11;
+    localparam S_DONE         = 4'd12;
 
+    localparam [31:0] BOOT_DELAY  = CLK_FREQ * 3;      // 3 seconds
+    localparam [31:0] WAKE_DELAY  = CLK_FREQ;          // 1 second
     localparam [31:0] TIMEOUT_MAX = CLK_FREQ * 8;      // 8 seconds
     localparam [17:0] BYTE_GAP    = CLK_FREQ / 500;    // 2ms
 
@@ -62,9 +71,10 @@ module fingerprint_ctrl #(
     reg [5:0]  rsp_cnt;
     reg [5:0]  resp_total;
 
-    reg [2:0]  state;
+    reg [3:0]  state;
     reg [31:0] timeout_cnt;
     reg [17:0] gap_cnt;
+    reg [31:0] init_cnt;
 
     reg [7:0]  cur_opcode;
     reg [15:0] cur_param;
@@ -72,12 +82,34 @@ module fingerprint_ctrl #(
     reg [4:0]  param_end;
     reg        rx_seen;
     reg [7:0]  last_rx_data;
+    reg        wake_done;
+    reg        pending_cmd;
+    reg [2:0]  debug_state;
 
-    assign debug_info = {4'd0, rx_seen, state, byte_idx, rsp_cnt, pkt_len, last_rx_data};
+    always @(*) begin
+        case (state)
+            S_IDLE:         debug_state = 3'd0;
+            S_BOOT_WAIT:    debug_state = 3'd1;
+            S_WAKE_SEND,
+            S_WAKE_WAIT_TX,
+            S_WAKE_GUARD:   debug_state = 3'd2;
+            S_BUILD:        debug_state = 3'd3;
+            S_SEND,
+            S_WAIT_TX_DONE,
+            S_BYTE_GAP:     debug_state = 3'd4;
+            S_WAIT_RESP:    debug_state = 3'd5;
+            S_READ_RESP,
+            S_PARSE:        debug_state = 3'd6;
+            S_DONE:         debug_state = 3'd7;
+            default:        debug_state = 3'd0;
+        endcase
+    end
+
+    assign debug_info = {4'd0, rx_seen, debug_state, byte_idx, rsp_cnt, pkt_len, last_rx_data};
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            state       <= S_IDLE;
+            state       <= S_BOOT_WAIT;
             tx_start    <= 1'b0;
             tx_data     <= 8'd0;
             response    <= 16'd0;
@@ -89,20 +121,51 @@ module fingerprint_ctrl #(
             resp_total  <= 6'd0;
             timeout_cnt <= 32'd0;
             gap_cnt     <= 18'd0;
+            init_cnt    <= 32'd0;
             cur_opcode  <= 8'd0;
             cur_param   <= 16'd0;
             chksum      <= 16'd0;
             param_end   <= 5'd0;
             rx_seen     <= 1'b0;
             last_rx_data <= 8'd0;
+            wake_done   <= 1'b0;
+            pending_cmd <= 1'b0;
         end else begin
             cmd_done <= 1'b0;
             tx_start <= 1'b0;
 
             case (state)
+                S_BOOT_WAIT: begin
+                    status <= pending_cmd ? 8'd1 : 8'd0;
+                    if (cmd_start) begin
+                        cur_opcode <= cmd_opcode;
+                        cur_param  <= cmd_param;
+                        status     <= 8'd1;
+                        rx_seen    <= 1'b0;
+                        last_rx_data <= 8'd0;
+                        rsp_cnt    <= 6'd0;
+                        resp_total <= 6'd0;
+                        byte_idx   <= 5'd0;
+                        pkt_len    <= 5'd0;
+                        pending_cmd <= 1'b1;
+                    end
+                    if (init_cnt >= BOOT_DELAY) begin
+                        init_cnt <= 32'd0;
+                        if (pending_cmd || cmd_start) begin
+                            pending_cmd <= 1'b0;
+                            if (wake_done)
+                                state <= S_BUILD;
+                            else
+                                state <= S_WAKE_SEND;
+                        end else begin
+                            state <= S_IDLE;
+                        end
+                    end else begin
+                        init_cnt <= init_cnt + 32'd1;
+                    end
+                end
+
                 S_IDLE: begin
-                    rsp_cnt     <= 6'd0;
-                    resp_total  <= 6'd0;
                     timeout_cnt <= 32'd0;
                     if (cmd_start) begin
                         cur_opcode <= cmd_opcode;
@@ -110,7 +173,39 @@ module fingerprint_ctrl #(
                         status     <= 8'd1;
                         rx_seen    <= 1'b0;
                         last_rx_data <= 8'd0;
-                        state      <= S_BUILD;
+                        rsp_cnt    <= 6'd0;
+                        resp_total <= 6'd0;
+                        byte_idx   <= 5'd0;
+                        pkt_len    <= 5'd0;
+                        if (wake_done)
+                            state <= S_BUILD;
+                        else
+                            state <= S_WAKE_SEND;
+                    end
+                end
+
+                S_WAKE_SEND: begin
+                    if (!tx_busy) begin
+                        tx_data  <= 8'h55;
+                        tx_start <= 1'b1;
+                        state    <= S_WAKE_WAIT_TX;
+                    end
+                end
+
+                S_WAKE_WAIT_TX: begin
+                    if (tx_done_w) begin
+                        wake_done <= 1'b1;
+                        init_cnt  <= 32'd0;
+                        state     <= S_WAKE_GUARD;
+                    end
+                end
+
+                S_WAKE_GUARD: begin
+                    if (init_cnt >= WAKE_DELAY) begin
+                        init_cnt <= 32'd0;
+                        state    <= S_BUILD;
+                    end else begin
+                        init_cnt <= init_cnt + 32'd1;
                     end
                 end
 
@@ -210,13 +305,20 @@ module fingerprint_ctrl #(
                             tx_start <= 1'b1;
                             byte_idx <= byte_idx + 5'd1;
                             gap_cnt  <= 18'd0;
-                            state    <= S_BYTE_GAP;
+                            state    <= S_WAIT_TX_DONE;
                         end else begin
                             state       <= S_WAIT_RESP;
                             rsp_cnt     <= 6'd0;
                             resp_total  <= 6'd0;
                             timeout_cnt <= 32'd0;
                         end
+                    end
+                end
+
+                S_WAIT_TX_DONE: begin
+                    if (tx_done_w) begin
+                        gap_cnt <= 18'd0;
+                        state   <= S_BYTE_GAP;
                     end
                 end
 
@@ -287,7 +389,7 @@ module fingerprint_ctrl #(
                     state <= S_IDLE;
                 end
 
-                default: state <= S_IDLE;
+                default: state <= S_BOOT_WAIT;
             endcase
         end
     end

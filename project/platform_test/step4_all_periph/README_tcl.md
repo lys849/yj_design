@@ -8,10 +8,9 @@
 ```tcl
 cd D:/Projects/yj_design/project/platform_test/step4_all_periph
 source vivado/create_project.tcl
-source vivado/create_bd.tcl
 ```
 
-然后：Generate Bitstream → Export Hardware。
+`create_project.tcl` 会自动调用 `create_bd.tcl`。然后：Generate Bitstream → Export Hardware。
 
 ### Vitis 应用
 
@@ -28,5 +27,7 @@ source vivado/create_bd.tcl
 - **MicroUSB**: PROG 口（供电 + 下载 + 串口）
 
 打开串口终端（115200 baud），程序自动依次测试 LED → 蜂鸣器 → 键盘 → 指纹传感器。
+
+指纹控制器首次命令前会自动执行 3s boot guard、`0x55` wake 和 1s guard；Vitis 程序无需额外发送 wake。
 
 详细寄存器映射和故障排查见 `README_manual.md`。

@@ -91,6 +91,8 @@ All tests complete!
 | 0x14 | LED | W | [3:0]=led |
 | 0x18 | FP_DBG | R | [27]=rx_seen, [26:24]=state, [23:19]=tx_idx, [18:13]=rx_cnt, [12:8]=pkt_len, [7:0]=last_rx |
 
+`FP_DBG.state` 编码：0=idle，1=boot_wait，2=wake/guard，3=build，4=send/tx_gap，5=wait_resp，6=read/parse，7=done。
+
 ## 故障排查
 
 | 现象 | 可能原因 |
@@ -100,4 +102,4 @@ All tests complete!
 | C 编译报 BASEADDR 未定义 | 自定义 IP 未正确添加到 BD；重新 Export Hardware 并重建平台工程 |
 | Generate Bitstream 报 `NSTD-1` | Clocking Wizard 差分时钟问题——使用更新后的 `create_bd.tcl` 或参见 Step 1 说明 |
 
-> AS608 UART 说明：厂家资料/总结文档标称 57600 8N2，但当前合作方同款硬件纯 Verilog demo 已用 57600 8N1 跑通，因此 step4 默认按 8N1 集成。若 `VfyPwd` 仍持续 timeout，可临时将 `fingerprint_ctrl.v` 中 TX/RX 的 `STOP_BITS` 改为 2 重新综合做 A/B 对照。
+> AS608 UART 说明：厂家资料/总结文档标称 57600 8N2，但当前合作方同款硬件纯 Verilog demo 已用 57600 8N1 跑通，因此 step4 默认按 8N1 集成。`fingerprint_ctrl.v` 首次命令前会自动执行 3s boot guard、`0x55` wake 和 1s guard，C 层无需额外发送 wake。若 `VfyPwd` 仍持续 timeout，可临时将 `fingerprint_ctrl.v` 中 TX/RX 的 `STOP_BITS` 改为 2 重新综合做 A/B 对照。

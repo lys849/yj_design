@@ -1,5 +1,6 @@
 // Fingerprint Controller Testbench — verifies AS608 packet assembly
-// Note: with 8s hardware timeout and 2ms byte gap, each command takes ~8s sim time
+// Note: this test uses a reduced CLK_FREQ parameter so the 3s boot guard,
+// 1s wake guard, and 8s response timeout complete quickly in simulation.
 `timescale 1ns / 1ps
 
 module fingerprint_tb;
@@ -16,7 +17,7 @@ module fingerprint_tb;
 
     always #5 clk = ~clk; // 100 MHz
 
-    fingerprint_ctrl #(.CLK_FREQ(100_000_000), .BAUD_RATE(57600)) uut (
+    fingerprint_ctrl #(.CLK_FREQ(1_000_000), .BAUD_RATE(57600)) uut (
         .clk(clk), .rst_n(rst_n),
         .sensor_tx(sensor_tx), .sensor_rx(sensor_rx),
         .cmd_opcode(cmd_opcode), .cmd_param(cmd_param),
@@ -37,7 +38,7 @@ module fingerprint_tb;
             $display("  Sent opcode=0x%02x param=0x%04x", op, param);
 
             wait_cycles = 0;
-            while (!cmd_done && wait_cycles < 900_000_000) begin
+            while (!cmd_done && wait_cycles < 15_000_000) begin
                 @(posedge clk);
                 wait_cycles = wait_cycles + 1;
             end
@@ -54,6 +55,8 @@ module fingerprint_tb;
         #200;
 
         $display("=== Fingerprint Controller Test ===");
+        $display("Waiting for controller boot guard...");
+        repeat (3_100_000) @(posedge clk);
 
         $display("Test 1: VfyPwd (0x13) — expect timeout (no sensor)");
         send_cmd_and_wait(8'h13, 16'h0000);

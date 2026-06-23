@@ -18,4 +18,6 @@ MicroBlaze + 单个自定义 AXI-Lite 外设（包装 5 个模块）+ C 应用�
 | 0x20 | VGA_CHAR | W | [31]=we, [22:12]=addr, [7:0]=ASCII |
 | 0x24 | LED | W | [3:0]=LED |
 
+指纹控制器首次命令前自动执行 3s boot guard、`0x55` wake 和 1s guard；应用层只需按原 `FP_CMD` 写 opcode/param。`FP_DBG.state` 编码：0=idle，1=boot_wait，2=wake/guard，3=build，4=send/tx_gap，5=wait_resp，6=read/parse，7=done。
+
 > 详细实施将在 Phase 3 进行。
