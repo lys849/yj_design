@@ -58,9 +58,13 @@ module fp_init_verify_top (
     localparam S_NEXT_CMD       = 8'd17;
     localparam S_DONE           = 8'd18;
     localparam S_PRINT_CHAR     = 8'd40;
+    localparam S_PRINT_NEXT     = 8'd41;
+    localparam S_DBG_START      = 8'd42;
+    localparam S_DBG_WAIT_DONE  = 8'd43;
 
     reg [7:0] state;
-    reg [7:0] return_state;
+    reg [7:0] msg_return_state;
+    reg [7:0] dbg_return_state;
     reg [31:0] timer;
 
     reg [1:0] cmd_id;
@@ -84,6 +88,8 @@ module fp_init_verify_top (
     reg [7:0] dbg_tx_data;
     reg       dbg_tx_start;
     wire      dbg_tx_busy;
+    wire      dbg_tx_done;
+    reg [7:0] dbg_pending_data;
 
     reg [3:0] msg_id;
     reg [7:0] msg_idx;
@@ -93,7 +99,7 @@ module fp_init_verify_top (
     uart_tx #(.CLK_FREQ(100_000_000), .BAUD_RATE(115200), .STOP_BITS(1)) u_dbg_tx (
         .clk(clk_100mhz), .rst_n(rst_n),
         .tx_data(dbg_tx_data), .tx_start(dbg_tx_start),
-        .tx(uart_dbg_tx), .tx_busy(dbg_tx_busy), .tx_done()
+        .tx(uart_dbg_tx), .tx_busy(dbg_tx_busy), .tx_done(dbg_tx_done)
     );
 
     uart_tx #(.CLK_FREQ(100_000_000), .BAUD_RATE(57600), .STOP_BITS(1)) u_fp_tx (
@@ -206,8 +212,18 @@ module fp_init_verify_top (
         begin
             msg_id <= id;
             msg_idx <= 8'd0;
-            return_state <= next_state;
+            msg_return_state <= next_state;
             state <= S_PRINT_CHAR;
+        end
+    endtask
+
+    task start_dbg_byte;
+        input [7:0] value;
+        input [7:0] next_state;
+        begin
+            dbg_pending_data <= value;
+            dbg_return_state <= next_state;
+            state <= S_DBG_START;
         end
     endtask
 
@@ -239,7 +255,8 @@ module fp_init_verify_top (
     always @(posedge clk_100mhz or negedge rst_n) begin
         if (!rst_n) begin
             state <= S_BOOT_WAIT;
-            return_state <= S_BOOT_WAIT;
+            msg_return_state <= S_BOOT_WAIT;
+            dbg_return_state <= S_BOOT_WAIT;
             timer <= 32'd0;
             cmd_id <= CMD_VFYPWD;
             cmd_len <= 5'd0;
@@ -253,6 +270,7 @@ module fp_init_verify_top (
             fp_tx_start <= 1'b0;
             dbg_tx_data <= 8'd0;
             dbg_tx_start <= 1'b0;
+            dbg_pending_data <= 8'd0;
             msg_id <= MSG_BANNER;
             msg_idx <= 8'd0;
             led <= 4'b0000;
@@ -275,7 +293,7 @@ module fp_init_verify_top (
                     if (msg_id != MSG_WAKE)
                         start_msg(MSG_WAKE, S_WAKE_SEND);
                     else if (!fp_tx_busy) begin
-                        led <= 4'b0011;
+                        led[0] <= 1'b1;
                         fp_tx_data <= 8'h55;
                         fp_tx_start <= 1'b1;
                         timer <= 32'd0;
@@ -366,55 +384,31 @@ module fp_init_verify_top (
                 S_RESULT_ACK_MSG: start_msg(MSG_ACK, S_RESULT_ACK_H);
 
                 S_RESULT_ACK_H: begin
-                    if (!dbg_tx_busy) begin
-                        dbg_tx_data <= hex_char(rsp_ack[7:4]);
-                        dbg_tx_start <= 1'b1;
-                        state <= S_RESULT_ACK_L;
-                    end
+                    start_dbg_byte(hex_char(rsp_ack[7:4]), S_RESULT_ACK_L);
                 end
 
                 S_RESULT_ACK_L: begin
-                    if (!dbg_tx_busy) begin
-                        dbg_tx_data <= hex_char(rsp_ack[3:0]);
-                        dbg_tx_start <= 1'b1;
-                        state <= S_RESULT_CNT_MSG;
-                    end
+                    start_dbg_byte(hex_char(rsp_ack[3:0]), S_RESULT_CNT_MSG);
                 end
 
                 S_RESULT_CNT_MSG: start_msg(MSG_CNT, S_RESULT_CNT_H);
 
                 S_RESULT_CNT_H: begin
-                    if (!dbg_tx_busy) begin
-                        dbg_tx_data <= hex_char(rsp_count[7:4]);
-                        dbg_tx_start <= 1'b1;
-                        state <= S_RESULT_CNT_L;
-                    end
+                    start_dbg_byte(hex_char(rsp_count[7:4]), S_RESULT_CNT_L);
                 end
 
                 S_RESULT_CNT_L: begin
-                    if (!dbg_tx_busy) begin
-                        dbg_tx_data <= hex_char(rsp_count[3:0]);
-                        dbg_tx_start <= 1'b1;
-                        state <= S_RESULT_LAST_MSG;
-                    end
+                    start_dbg_byte(hex_char(rsp_count[3:0]), S_RESULT_LAST_MSG);
                 end
 
                 S_RESULT_LAST_MSG: start_msg(MSG_LAST, S_RESULT_LAST_H);
 
                 S_RESULT_LAST_H: begin
-                    if (!dbg_tx_busy) begin
-                        dbg_tx_data <= hex_char(last_rx[7:4]);
-                        dbg_tx_start <= 1'b1;
-                        state <= S_RESULT_LAST_L;
-                    end
+                    start_dbg_byte(hex_char(last_rx[7:4]), S_RESULT_LAST_L);
                 end
 
                 S_RESULT_LAST_L: begin
-                    if (!dbg_tx_busy) begin
-                        dbg_tx_data <= hex_char(last_rx[3:0]);
-                        dbg_tx_start <= 1'b1;
-                        state <= S_RESULT_CRLF;
-                    end
+                    start_dbg_byte(hex_char(last_rx[3:0]), S_RESULT_CRLF);
                 end
 
                 S_RESULT_CRLF: start_msg(MSG_CRLF, S_NEXT_CMD);
@@ -427,7 +421,7 @@ module fp_init_verify_top (
                         cmd_id <= CMD_VALIDNUM;
                         state <= S_CMD_PREP;
                     end else if (cmd_id == CMD_VALIDNUM) begin
-                        led <= 4'b0111;
+                        led[2] <= 1'b1;
                         start_msg(MSG_OK, S_DONE);
                     end else begin
                         led[3] <= 1'b1;
@@ -436,17 +430,33 @@ module fp_init_verify_top (
                 end
 
                 S_DONE: begin
-                    led[2] <= 1'b1;
+                    state <= S_DONE;
                 end
 
                 S_PRINT_CHAR: begin
                     if (msg_char(msg_id, msg_idx) == 8'h00) begin
-                        state <= return_state;
-                    end else if (!dbg_tx_busy) begin
-                        dbg_tx_data <= msg_char(msg_id, msg_idx);
-                        dbg_tx_start <= 1'b1;
-                        msg_idx <= msg_idx + 8'd1;
+                        state <= msg_return_state;
+                    end else begin
+                        start_dbg_byte(msg_char(msg_id, msg_idx), S_PRINT_NEXT);
                     end
+                end
+
+                S_PRINT_NEXT: begin
+                    msg_idx <= msg_idx + 8'd1;
+                    state <= S_PRINT_CHAR;
+                end
+
+                S_DBG_START: begin
+                    if (!dbg_tx_busy) begin
+                        dbg_tx_data <= dbg_pending_data;
+                        dbg_tx_start <= 1'b1;
+                        state <= S_DBG_WAIT_DONE;
+                    end
+                end
+
+                S_DBG_WAIT_DONE: begin
+                    if (dbg_tx_done)
+                        state <= dbg_return_state;
                 end
 
                 default: state <= S_BOOT_WAIT;
