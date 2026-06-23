@@ -6,6 +6,7 @@
 //   0x0C BUZZER   [W]  {29'b0, fail[2], ok[1], short[0]} 写后自动清零
 //   0x10 VGA_CHAR [W]  {we[31], 8'b0, addr[22:12], 4'b0, data[7:0]}
 //   0x14 LED      [W]  {28'b0, led[3:0]}
+//   0x18 FP_DBG   [R]  {4'b0, rx_seen, state[2:0], tx_idx[4:0], rx_cnt[5:0], pkt_len[4:0], last_rx[7:0]}
 `timescale 1ns / 1ps
 
 module fp_payment_periph #(
@@ -87,18 +88,17 @@ module fp_payment_periph #(
     // 指纹
     reg  [7:0]  fp_opcode;
     reg  [15:0] fp_param;
-    reg         fp_start;
-    reg         fp_start_d;
-    wire        fp_start_pulse = fp_start & ~fp_start_d;
+    reg         fp_start_pulse;
     wire [15:0] fp_response;
     wire [7:0]  fp_status;
     wire        fp_done;
+    wire [31:0] fp_debug;
     fingerprint_ctrl #(.CLK_FREQ(100_000_000)) u_fp (
         .clk(clk), .rst_n(rst_n),
         .sensor_tx(fp_sensor_tx), .sensor_rx(fp_sensor_rx),
         .cmd_opcode(fp_opcode), .cmd_param(fp_param),
         .cmd_start(fp_start_pulse), .response(fp_response),
-        .status(fp_status), .cmd_done(fp_done)
+        .status(fp_status), .cmd_done(fp_done), .debug_info(fp_debug)
     );
 
     // 蜂鸣器
@@ -127,27 +127,16 @@ module fp_payment_periph #(
         end
     end
 
-    // 指纹启动脉冲
-    always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) fp_start_d <= 1'b0;
-        else        fp_start_d <= fp_start;
-    end
-
-
-
     // ---- AXI Write ----
-    reg [C_S_AXI_ADDR_WIDTH-1:0] aw_addr;
-
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             S_AXI_AWREADY <= 1'b0;
             S_AXI_WREADY  <= 1'b0;
             S_AXI_BVALID  <= 1'b0;
             S_AXI_BRESP   <= 2'b00;
-            aw_addr       <= 0;
             fp_opcode     <= 8'd0;
             fp_param      <= 16'd0;
-            fp_start      <= 1'b0;
+            fp_start_pulse <= 1'b0;
             led           <= 4'd0;
             vga_char_addr <= 11'd0;
             vga_char_data <= 8'd0;
@@ -160,21 +149,15 @@ module fp_payment_periph #(
             if (beep_ok)    beep_ok    <= 1'b0;
             if (beep_fail)  beep_fail  <= 1'b0;
             if (vga_char_we) vga_char_we <= 1'b0;
-            // Handshake
-            if (S_AXI_AWVALID && S_AXI_WVALID && !S_AXI_AWREADY) begin
+            fp_start_pulse <= 1'b0;
+
+            if (S_AXI_AWVALID && S_AXI_WVALID && !S_AXI_BVALID) begin
                 S_AXI_AWREADY <= 1'b1;
                 S_AXI_WREADY  <= 1'b1;
-                aw_addr       <= S_AXI_AWADDR;
-            end else begin
-                S_AXI_AWREADY <= 1'b0;
-                S_AXI_WREADY  <= 1'b0;
-            end
 
-            // Write data
-            if (S_AXI_AWREADY && S_AXI_WREADY) begin
-                case (aw_addr[4:2])
+                case (S_AXI_AWADDR[4:2])
                     3'd0: begin // FP_CMD
-                        fp_start  <= S_AXI_WDATA[31];
+                        fp_start_pulse <= S_AXI_WDATA[31];
                         fp_opcode <= S_AXI_WDATA[23:16];
                         fp_param  <= S_AXI_WDATA[15:0];
                     end
@@ -193,12 +176,13 @@ module fp_payment_periph #(
                     end
                 endcase
                 S_AXI_BVALID <= 1'b1;
-            end else if (S_AXI_BVALID && S_AXI_BREADY) begin
-                S_AXI_BVALID <= 1'b0;
+                S_AXI_BRESP  <= 2'b00;
+            end else begin
+                S_AXI_AWREADY <= 1'b0;
+                S_AXI_WREADY  <= 1'b0;
+                if (S_AXI_BVALID && S_AXI_BREADY)
+                    S_AXI_BVALID <= 1'b0;
             end
-
-            if (fp_start && !(S_AXI_AWREADY && S_AXI_WREADY && aw_addr[4:2] == 3'd0))
-                fp_start <= 1'b0;
         end
     end
 
@@ -214,10 +198,11 @@ module fp_payment_periph #(
                 S_AXI_ARREADY <= 1'b1;
                 S_AXI_RVALID  <= 1'b1;
                 case (S_AXI_ARADDR[4:2])
-                    3'd0: S_AXI_RDATA <= {fp_start, 7'd0, fp_opcode, fp_param};
+                    3'd0: S_AXI_RDATA <= {fp_start_pulse, 7'd0, fp_opcode, fp_param};
                     3'd1: S_AXI_RDATA <= {fp_status, 8'd0, fp_response};
                     3'd2: S_AXI_RDATA <= {27'd0, kb_latched_valid, kb_latched_code};
                     3'd5: S_AXI_RDATA <= {28'd0, led};
+                    3'd6: S_AXI_RDATA <= fp_debug;
                     default: S_AXI_RDATA <= 32'd0;
                 endcase
             end else begin

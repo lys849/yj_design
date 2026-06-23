@@ -21,7 +21,8 @@ module fingerprint_ctrl #(
     input  wire         cmd_start,
     output reg  [15:0]  response,
     output reg  [7:0]   status,         // 0=idle, 1=busy, 2=done, 3=error
-    output reg          cmd_done
+    output reg          cmd_done,
+    output wire [31:0]  debug_info
 );
 
     localparam S_IDLE      = 3'd0;
@@ -69,6 +70,10 @@ module fingerprint_ctrl #(
     reg [15:0] cur_param;
     reg [15:0] chksum;
     reg [4:0]  param_end;
+    reg        rx_seen;
+    reg [7:0]  last_rx_data;
+
+    assign debug_info = {4'd0, rx_seen, state, byte_idx, rsp_cnt, pkt_len, last_rx_data};
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -88,6 +93,8 @@ module fingerprint_ctrl #(
             cur_param   <= 16'd0;
             chksum      <= 16'd0;
             param_end   <= 5'd0;
+            rx_seen     <= 1'b0;
+            last_rx_data <= 8'd0;
         end else begin
             cmd_done <= 1'b0;
             tx_start <= 1'b0;
@@ -101,6 +108,8 @@ module fingerprint_ctrl #(
                         cur_opcode <= cmd_opcode;
                         cur_param  <= cmd_param;
                         status     <= 8'd1;
+                        rx_seen    <= 1'b0;
+                        last_rx_data <= 8'd0;
                         state      <= S_BUILD;
                     end
                 end
@@ -224,6 +233,8 @@ module fingerprint_ctrl #(
                     timeout_cnt <= timeout_cnt + 32'd1;
                     if (rx_valid) begin
                         resp_buf[0] <= rx_data;
+                        rx_seen     <= 1'b1;
+                        last_rx_data <= rx_data;
                         rsp_cnt     <= 6'd1;
                         state       <= S_READ_RESP;
                         timeout_cnt <= 32'd0;
@@ -237,6 +248,8 @@ module fingerprint_ctrl #(
                 S_READ_RESP: begin
                     timeout_cnt <= timeout_cnt + 32'd1;
                     if (rx_valid) begin
+                        rx_seen <= 1'b1;
+                        last_rx_data <= rx_data;
                         if (rsp_cnt < 6'd32)
                             resp_buf[rsp_cnt] <= rx_data;
                         rsp_cnt     <= rsp_cnt + 6'd1;

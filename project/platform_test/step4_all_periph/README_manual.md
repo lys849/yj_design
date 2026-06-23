@@ -69,6 +69,7 @@
 [KEYBOARD] DONE
 
 [FINGERPRINT] VfyPwd default password opcode=0x13 param=0x0000
+  dbg=0x... rx_seen=... state=... tx_idx=.../... rx_cnt=... last_rx=0x...
   VfyPwd default password OK: ...
   Sensor responded: OK (password verified)
 [FINGERPRINT] ReadSysPara opcode=0x0f param=0x0000
@@ -88,6 +89,7 @@ All tests complete!
 | 0x0C | BUZZER | W | [2]=fail, [1]=ok, [0]=short |
 | 0x10 | VGA_CHAR | W | [31]=we, [22:12]=addr, [7:0]=ascii |
 | 0x14 | LED | W | [3:0]=led |
+| 0x18 | FP_DBG | R | [27]=rx_seen, [26:24]=state, [23:19]=tx_idx, [18:13]=rx_cnt, [12:8]=pkt_len, [7:0]=last_rx |
 
 ## 故障排查
 

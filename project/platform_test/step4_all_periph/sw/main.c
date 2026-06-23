@@ -13,6 +13,7 @@
 #define REG_BUZZER   (PERIPH_BASE + 0x0C)
 #define REG_VGA_CHAR (PERIPH_BASE + 0x10)
 #define REG_LED      (PERIPH_BASE + 0x14)
+#define REG_FP_DBG   (PERIPH_BASE + 0x18)
 
 static const char *fp_status_name(u32 status)
 {
@@ -23,6 +24,19 @@ static const char *fp_status_name(u32 status)
     case 3: return "error";
     default: return "unknown";
     }
+}
+
+static void fp_print_debug(const char *prefix, u32 dbg)
+{
+    u32 rx_seen = (dbg >> 27) & 0x1;
+    u32 state = (dbg >> 24) & 0x7;
+    u32 tx_idx = (dbg >> 19) & 0x1F;
+    u32 rx_cnt = (dbg >> 13) & 0x3F;
+    u32 pkt_len = (dbg >> 8) & 0x1F;
+    u32 last_rx = dbg & 0xFF;
+
+    xil_printf("%sdbg=0x%08lx rx_seen=%lu state=%lu tx_idx=%lu/%lu rx_cnt=%lu last_rx=0x%02lx\r\n",
+               prefix, dbg, rx_seen, state, tx_idx, pkt_len, rx_cnt, last_rx);
 }
 
 static int fp_run_command(const char *name, u8 opcode, u16 param, int timeout_ms)
@@ -36,34 +50,42 @@ static int fp_run_command(const char *name, u8 opcode, u16 param, int timeout_ms
 
     usleep(1000);
     u32 first_resp = Xil_In32(REG_FP_RESP);
+    u32 first_dbg = Xil_In32(REG_FP_DBG);
     xil_printf("  RESP after 1ms=0x%08lx (status=%lu/%s response=0x%04lx)\r\n",
                first_resp, (first_resp >> 24) & 0xFF,
                fp_status_name((first_resp >> 24) & 0xFF),
                first_resp & 0xFFFF);
+    fp_print_debug("  ", first_dbg);
 
     int timeout = timeout_ms / 10;
     int print_cnt = 0;
     u32 final_resp = first_resp;
+    u32 final_dbg = first_dbg;
     while (timeout-- > 0) {
         u32 resp = Xil_In32(REG_FP_RESP);
+        u32 dbg = Xil_In32(REG_FP_DBG);
         u32 status = (resp >> 24) & 0xFF;
         final_resp = resp;
+        final_dbg = dbg;
 
         if (print_cnt < 5 || (timeout % 200 == 0)) {
             xil_printf("  poll resp=0x%08lx st=%lu/%s response=0x%04lx t=%d\r\n",
                        resp, status, fp_status_name(status),
                        resp & 0xFFFF, timeout);
+            fp_print_debug("  ", dbg);
             print_cnt++;
         }
 
         if (status == 2) {
             xil_printf("  %s OK: final=0x%08lx response=0x%04lx\r\n",
                        name, resp, resp & 0xFFFF);
+            fp_print_debug("  final ", dbg);
             return 1;
         }
         if (status == 3) {
             xil_printf("  %s ERROR: final=0x%08lx code=0x%02lx\r\n",
                        name, resp, resp & 0xFF);
+            fp_print_debug("  final ", dbg);
             return 0;
         }
 
@@ -74,6 +96,7 @@ static int fp_run_command(const char *name, u8 opcode, u16 param, int timeout_ms
     xil_printf("  %s TIMEOUT: final=0x%08lx status=%lu/%s response=0x%04lx\r\n",
                name, final_resp, final_status, fp_status_name(final_status),
                final_resp & 0xFFFF);
+    fp_print_debug("  timeout ", final_dbg);
     return 0;
 }
 
